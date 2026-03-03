@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "170733253686",
+    "project_id": "rapikids01",
+    "storage_bucket": "rapikids01.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:170733253686:android:4ce0e8bd094d7b06f79497",
+        "android_client_info": {
+          "package_name": "com.example.rapikids01"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAI13PN2V6reAlxZYu9iMQZkg7Dr-IMqSs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
