@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -34,12 +34,34 @@ fun LoginScreen(
     val state by authViewModel.loginState.collectAsState()
     var passwordVisible by remember { mutableStateOf(false) }
 
-    val primaryColor = Color(0xFF6A4DBA)
+    // Color según el rol
+    val primaryColor = when (role) {
+        UserRole.ADMIN     -> Color(0xFFE53935)  // rojo admin
+        UserRole.GUARDERIA -> Color(0xFF3949AB)  // azul guardería
+        else               -> Color(0xFF6A4DBA)  // morado padre
+    }
+
+    // Textos según el rol
+    val titulo = when (role) {
+        UserRole.ADMIN     -> "🔐 Panel Administrador"
+        UserRole.GUARDERIA -> "🏫 Iniciar sesión"
+        else               -> "👨‍👩‍👧 Iniciar sesión"
+    }
+
+    val topBarTitle = when (role) {
+        UserRole.ADMIN     -> "Acceso Administrador"
+        UserRole.GUARDERIA -> "Acceso Guarderías"
+        else               -> "Acceso Padres"
+    }
 
     // Navegar cuando el login es exitoso
     LaunchedEffect(state.loginSuccess) {
         state.loginSuccess?.let { userRole ->
-            val destination = if (userRole == UserRole.PADRE) Routes.HOME_PADRE else Routes.HOME_GUARDERIA
+            val destination = when (userRole) {
+                UserRole.PADRE     -> Routes.HOME_PADRE
+                UserRole.GUARDERIA -> Routes.HOME_GUARDERIA
+                UserRole.ADMIN     -> Routes.HOME_ADMIN
+            }
             navController.navigate(destination) {
                 popUpTo(Routes.HOME) { inclusive = false }
             }
@@ -51,19 +73,16 @@ fun LoginScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = if (role == UserRole.PADRE) "Acceso Padres" else "Acceso Guarderías",
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text(text = topBarTitle, fontWeight = FontWeight.Bold)
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = primaryColor,
-                    titleContentColor = Color.White,
+                    containerColor         = primaryColor,
+                    titleContentColor      = Color.White,
                     navigationIconContentColor = Color.White
                 )
             )
@@ -75,50 +94,51 @@ fun LoginScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+            verticalArrangement   = Arrangement.Center,
+            horizontalAlignment   = Alignment.CenterHorizontally
         ) {
 
             Text(
-                text = if (role == UserRole.PADRE) "👨‍👩‍👧 Iniciar sesión" else "🏫 Iniciar sesión",
-                fontSize = 22.sp,
+                text       = titulo,
+                fontSize   = 22.sp,
                 fontWeight = FontWeight.Bold,
-                color = primaryColor
+                color      = primaryColor
             )
 
             Spacer(Modifier.height(32.dp))
 
             // ── Email ──────────────────────────────────────────────────
             OutlinedTextField(
-                value = state.email,
+                value         = state.email,
                 onValueChange = authViewModel::onLoginEmailChange,
-                label = { Text("Correo electrónico") },
-                singleLine = true,
+                label         = { Text("Correo electrónico") },
+                singleLine    = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                modifier      = Modifier.fillMaxWidth(),
+                shape         = RoundedCornerShape(12.dp)
             )
 
             Spacer(Modifier.height(14.dp))
 
             // ── Contraseña ─────────────────────────────────────────────
             OutlinedTextField(
-                value = state.password,
+                value         = state.password,
                 onValueChange = authViewModel::onLoginPasswordChange,
-                label = { Text("Contraseña") },
-                singleLine = true,
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                label         = { Text("Contraseña") },
+                singleLine    = true,
+                visualTransformation = if (passwordVisible)
+                    VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                trailingIcon = {
+                trailingIcon  = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
                         Icon(
-                            imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            imageVector        = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                             contentDescription = null
                         )
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape    = RoundedCornerShape(12.dp)
             )
 
             Spacer(Modifier.height(8.dp))
@@ -126,13 +146,13 @@ fun LoginScreen(
             // ── Error ──────────────────────────────────────────────────
             if (state.error != null) {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
-                    shape = RoundedCornerShape(8.dp),
+                    colors   = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                    shape    = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "⚠️ ${state.error}",
-                        color = Color(0xFFB71C1C),
+                        text     = "⚠️ ${state.error}",
+                        color    = Color(0xFFB71C1C),
                         modifier = Modifier.padding(12.dp),
                         fontSize = 13.sp
                     )
@@ -144,19 +164,17 @@ fun LoginScreen(
 
             // ── Botón Login ────────────────────────────────────────────
             Button(
-                onClick = { authViewModel.login(role) },
-                enabled = !state.isLoading,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+                onClick  = { authViewModel.login(role) },
+                enabled  = !state.isLoading,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape    = RoundedCornerShape(12.dp),
+                colors   = ButtonDefaults.buttonColors(containerColor = primaryColor)
             ) {
                 if (state.isLoading) {
                     CircularProgressIndicator(
-                        color = Color.White,
+                        color       = Color.White,
                         strokeWidth = 2.dp,
-                        modifier = Modifier.size(22.dp)
+                        modifier    = Modifier.size(22.dp)
                     )
                 } else {
                     Text("Ingresar", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
@@ -168,14 +186,17 @@ fun LoginScreen(
             // ── Link a Registro ────────────────────────────────────────
             TextButton(
                 onClick = {
-                    val registerRoute = if (role == UserRole.PADRE)
-                        Routes.REGISTER_PADRE else Routes.REGISTER_GUARDERIA
+                    val registerRoute = when (role) {
+                        UserRole.ADMIN     -> Routes.REGISTER_ADMIN
+                        UserRole.GUARDERIA -> Routes.REGISTER_GUARDERIA
+                        else               -> Routes.REGISTER_PADRE
+                    }
                     navController.navigate(registerRoute)
                 }
             ) {
                 Text(
-                    text = "¿No tienes cuenta? Regístrate aquí",
-                    color = primaryColor,
+                    text     = "¿No tienes cuenta? Regístrate aquí",
+                    color    = primaryColor,
                     fontSize = 14.sp
                 )
             }

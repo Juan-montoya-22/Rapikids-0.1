@@ -11,11 +11,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class HomePadreUiState(
-    val todasGuarderias: List<Guarderia> = emptyList(),   // lista completa sin filtrar
-    val guarderiasFiltradas: List<Guarderia> = emptyList(), // lista que se muestra
-    val searchQuery: String = "",
-    val isLoading: Boolean = false,
-    val error: String? = null
+    val todasGuarderias: List<Guarderia>    = emptyList(),
+    val guarderiasFiltradas: List<Guarderia> = emptyList(),
+    val searchQuery: String                  = "",
+    val isLoading: Boolean                   = false,
+    val error: String?                       = null
 )
 
 class HomePadreViewModel(
@@ -25,50 +25,38 @@ class HomePadreViewModel(
     private val _uiState = MutableStateFlow(HomePadreUiState())
     val uiState: StateFlow<HomePadreUiState> = _uiState.asStateFlow()
 
-    init {
-        cargarGuarderias()
-    }
+    init { cargarGuarderias() }
 
     fun cargarGuarderias() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-
-            val result = repository.obtenerGuarderias()
-
-            result.fold(
+            repository.obtenerGuarderias().fold(
                 onSuccess = { lista ->
                     _uiState.update {
                         it.copy(
-                            isLoading = false,
-                            todasGuarderias = lista,
+                            isLoading         = false,
+                            todasGuarderias   = lista,
                             guarderiasFiltradas = lista
                         )
                     }
                 },
                 onFailure = { e ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = "No se pudo cargar las guarderías: ${e.message}"
-                        )
-                    }
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
                 }
             )
         }
     }
 
     fun onSearchQueryChange(query: String) {
-        _uiState.update { state ->
-            val filtradas = repository.filtrarGuarderias(state.todasGuarderias, query)
-            state.copy(searchQuery = query, guarderiasFiltradas = filtradas)
-        }
+        val filtradas = repository.filtrarGuarderias(_uiState.value.todasGuarderias, query)
+        _uiState.update { it.copy(searchQuery = query, guarderiasFiltradas = filtradas) }
     }
 
     fun limpiarBusqueda() {
-        _uiState.update { state ->
-            state.copy(
-                searchQuery = "",
-                guarderiasFiltradas = state.todasGuarderias
+        _uiState.update {
+            it.copy(
+                searchQuery         = "",
+                guarderiasFiltradas = it.todasGuarderias
             )
         }
     }

@@ -1,55 +1,60 @@
 package com.example.rapikids01.data.auth
 
+import android.content.Context
+import android.net.Uri
 import com.example.rapikids01.UserRole
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.tasks.await
+import com.example.rapikids01.data.model.Admin
+import com.example.rapikids01.data.model.Guarderia
+import com.example.rapikids01.data.model.Usuario
+import com.example.rapikids01.data.supabase.SupabaseClient.client
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.query.Columns
+import io.github.jan.supabase.storage.storage
+import io.github.jan.supabase.storage.upload
 
-/**
- * AuthRepository
- * Única fuente de verdad para todas las operaciones de autenticación.
- * Usa coroutines (suspend) en lugar de callbacks → más limpio con ViewModel.
- */
+private const val ADMIN_SECRET_CODE = "RAPIKIDS-ADMIN-2026"
+
 class AuthRepository {
 
-    private val auth = FirebaseAuth.getInstance()
-    private val db   = FirebaseFirestore.getInstance()
+    val currentUser get() = client.auth.currentUserOrNull()
+    val isLoggedIn  get() = client.auth.currentUserOrNull() != null
 
-    // ── Estado de sesión ──────────────────────────────────────────────────
-
-    val currentUser get() = auth.currentUser
-
-    val isLoggedIn get() = auth.currentUser != null
-
-    // ── Login ─────────────────────────────────────────────────────────────
-
+    // ── Login ─────────────────────────────────────────────────────────
     suspend fun login(email: String, password: String): Result<UserRole> {
         return try {
-            auth.signInWithEmailAndPassword(email, password).await()
+            client.auth.signInWith(Email) {
+                this.email    = email
+                this.password = password
+            }
 
-            val uid = auth.currentUser?.uid
+            val uid = client.auth.currentUserOrNull()?.id
                 ?: return Result.failure(Exception("No se pudo obtener el usuario"))
 
-            val doc = db.collection("users").document(uid).get().await()
+            val usuarios = client.postgrest["users"]
+                .select(Columns.list("role")) {
+                    filter { eq("uid", uid) }
+                }
+                .decodeList<Map<String, String>>()
 
-            if (!doc.exists())
-                return Result.failure(Exception("El usuario no tiene datos registrados"))
+            val roleStr = usuarios.firstOrNull()?.get("role")
+                ?: return Result.failure(Exception("Usuario sin rol asignado"))
 
-            val role = when (doc.getString("role")) {
+            val role = when (roleStr) {
                 "PADRE"     -> UserRole.PADRE
                 "GUARDERIA" -> UserRole.GUARDERIA
-                else        -> return Result.failure(Exception("Rol inválido o no definido"))
+                "ADMIN"     -> UserRole.ADMIN
+                else        -> return Result.failure(Exception("Rol inválido"))
             }
 
             Result.success(role)
-
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    // ── Registro Padre ────────────────────────────────────────────────────
-
+    // ── Registro Padre ────────────────────────────────────────────────
     suspend fun registerPadre(
         nombre: String,
         telefono: String,
@@ -57,72 +62,133 @@ class AuthRepository {
         password: String
     ): Result<Unit> {
         return try {
-            val result = auth.createUserWithEmailAndPassword(email, password).await()
-            val uid = result.user?.uid
+            client.auth.signUpWith(Email) {
+                this.email    = email
+                this.password = password
+            }
+
+            val uid = client.auth.currentUserOrNull()?.id
                 ?: return Result.failure(Exception("No se pudo obtener el UID"))
 
-            val userData = hashMapOf<String, Any>(
-                "uid"       to uid,
-                "email"     to email,
-                "nombre"    to nombre,
-                "telefono"  to telefono,
-                "role"      to "PADRE",
-                "createdAt" to System.currentTimeMillis()
+            client.postgrest["users"].insert(
+                Usuario(uid = uid, email = email, nombre = nombre, telefono = telefono, role = "PADRE")
             )
 
-            db.collection("users").document(uid).set(userData).await()
-
             Result.success(Unit)
-
         } catch (e: Exception) {
-            // Si Firestore falla después de crear Auth, limpiamos el usuario
-            auth.currentUser?.delete()?.await()
             Result.failure(e)
         }
     }
 
-    // ── Registro Guardería ────────────────────────────────────────────────
-
+    // ── Registro Guardería ────────────────────────────────────────────
+    // Ahora recibe Context y Uri para subir el documento a Storage
     suspend fun registerGuarderia(
+        context: Context,
         nombreGuarderia: String,
         direccion: String,
         nit: String,
         telefono: String,
         email: String,
         password: String,
-        documentoUrl: String = ""   // Se llenará después de subir archivo a Storage
+        documentoUri: String = ""
     ): Result<Unit> {
         return try {
-            val result = auth.createUserWithEmailAndPassword(email, password).await()
-            val uid = result.user?.uid
+            client.auth.signUpWith(Email) {
+                this.email    = email
+                this.password = password
+            }
+
+            val uid = client.auth.currentUserOrNull()?.id
                 ?: return Result.failure(Exception("No se pudo obtener el UID"))
 
-            val userData = hashMapOf<String, Any>(
-                "uid"            to uid,
-                "email"          to email,
-                "nombreGuarderia" to nombreGuarderia,
-                "direccion"      to direccion,
-                "nit"            to nit,
-                "telefono"       to telefono,
-                "role"           to "GUARDERIA",
-                "documentoUrl"   to documentoUrl,
-                "verificada"     to false,           // Admin revisa documentos
-                "createdAt"      to System.currentTimeMillis()
+            // ── Subir documento a Supabase Storage ────────────────────
+            var documentoUrl = ""
+            if (documentoUri.isNotBlank()) {
+                try {
+                    val uri   = Uri.parse(documentoUri)
+                    val bytes = context.contentResolver.openInputStream(uri)?.readBytes()
+                    if (bytes != null) {
+                        val ext      = context.contentResolver.getType(uri)?.substringAfter("/") ?: "pdf"
+                        val filePath = "$uid/documento.$ext"
+                        val bucket   = client.storage["guarderias"]
+                        bucket.upload(filePath, bytes) { upsert = true }
+                        documentoUrl = bucket.publicUrl(filePath)
+                    }
+                } catch (e: Exception) {
+                    // Si falla la subida del doc, continuamos sin él
+                    documentoUrl = ""
+                }
+            }
+
+            // ── Insertar en users ─────────────────────────────────────
+            client.postgrest["users"].insert(
+                Usuario(
+                    uid      = uid,
+                    email    = email,
+                    nombre   = nombreGuarderia,
+                    telefono = telefono,
+                    role     = "GUARDERIA"
+                )
             )
 
-            // Guardamos en colección separada "guarderias" + referencia en "users"
-            db.collection("users").document(uid).set(userData).await()
-            db.collection("guarderias").document(uid).set(userData).await()
+            // ── Insertar en guarderias ────────────────────────────────
+            client.postgrest["guarderias"].insert(
+                Guarderia(
+                    uid             = uid,
+                    email           = email,
+                    nombreGuarderia = nombreGuarderia,
+                    direccion       = direccion,
+                    nit             = nit,
+                    telefono        = telefono,
+                    documentoUrl    = documentoUrl,
+                    verificada      = false,
+                    estado          = "pendiente"
+                )
+            )
 
             Result.success(Unit)
-
         } catch (e: Exception) {
-            auth.currentUser?.delete()?.await()
             Result.failure(e)
         }
     }
 
-    // ── Logout ────────────────────────────────────────────────────────────
+    // ── Registro Admin ────────────────────────────────────────────────
+    suspend fun registerAdmin(
+        nombre: String,
+        cargo: String,
+        email: String,
+        password: String,
+        codigoSecreto: String
+    ): Result<Unit> {
+        if (codigoSecreto != ADMIN_SECRET_CODE) {
+            return Result.failure(Exception("Código de administrador incorrecto"))
+        }
 
-    fun logout() = auth.signOut()
+        return try {
+            client.auth.signUpWith(Email) {
+                this.email    = email
+                this.password = password
+            }
+
+            val uid = client.auth.currentUserOrNull()?.id
+                ?: return Result.failure(Exception("No se pudo obtener el UID"))
+
+            client.postgrest["users"].insert(
+                Usuario(uid = uid, email = email, nombre = nombre, telefono = "", role = "ADMIN")
+            )
+
+            client.postgrest["admins"].insert(
+                Admin(uid = uid, email = email, nombre = nombre, cargo = cargo)
+            )
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // ── Logout ────────────────────────────────────────────────────────
+    suspend fun logout() {
+        try { client.auth.signOut() } catch (_: Exception) {}
+    }
 }
