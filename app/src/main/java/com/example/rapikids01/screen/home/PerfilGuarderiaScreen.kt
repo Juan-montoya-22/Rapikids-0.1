@@ -40,6 +40,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import java.text.NumberFormat
+import java.util.Locale
 
 @Serializable
 data class ResenaInsert(
@@ -67,6 +69,7 @@ class PerfilGuarderiaViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
+                // Cargar perfil COMPLETO desde Supabase (con todos los campos nuevos)
                 val guarderia = client.postgrest["guarderias"]
                     .select()
                     .decodeList<Guarderia>()
@@ -80,7 +83,7 @@ class PerfilGuarderiaViewModel : ViewModel() {
                             order("created_at", Order.DESCENDING)
                         }
                         .decodeList<Resena>()
-                } catch (e: Exception) { emptyList() }
+                } catch (_: Exception) { emptyList() }
 
                 val padreUid   = client.auth.currentUserOrNull()?.id?.toString() ?: ""
                 val yaCalificó = resenas.any { it.padreUid == padreUid }
@@ -95,10 +98,7 @@ class PerfilGuarderiaViewModel : ViewModel() {
     }
 
     fun enviarResena(guarderiaUid: String, calificacion: Int, comentario: String) {
-        if (comentario.isBlank()) {
-            _uiState.update { it.copy(error = "Escribe un comentario") }
-            return
-        }
+        if (comentario.isBlank()) { _uiState.update { it.copy(error = "Escribe un comentario") }; return }
         viewModelScope.launch {
             _uiState.update { it.copy(isSending = true, error = null) }
             try {
@@ -106,12 +106,7 @@ class PerfilGuarderiaViewModel : ViewModel() {
                     ?: throw Exception("No autenticado")
 
                 client.postgrest["resenas"].insert(
-                    ResenaInsert(
-                        guarderiaUid = guarderiaUid,
-                        padreUid     = padreUid,
-                        calificacion = calificacion,
-                        comentario   = comentario
-                    )
+                    ResenaInsert(guarderiaUid = guarderiaUid, padreUid = padreUid, calificacion = calificacion, comentario = comentario)
                 )
 
                 val todasResenas = client.postgrest["resenas"]
@@ -126,9 +121,7 @@ class PerfilGuarderiaViewModel : ViewModel() {
                         put("calificacion_promedio", JsonPrimitive(promedio))
                         put("total_resenas", JsonPrimitive(total))
                     }
-                ) {
-                    filter { eq("uid", guarderiaUid) }
-                }
+                ) { filter { eq("uid", guarderiaUid) } }
 
                 _uiState.update { it.copy(isSending = false, successMsg = "¡Reseña publicada!", yaCalificó = true) }
                 cargar(guarderiaUid)
@@ -141,10 +134,12 @@ class PerfilGuarderiaViewModel : ViewModel() {
     fun clearMessages() = _uiState.update { it.copy(error = null, successMsg = null) }
 }
 
+// ── Colores ───────────────────────────────────────────────────────────────────
 private val Purple    = Color(0xFF6A4DBA)
 private val StarColor = Color(0xFFFFC107)
 private val TextDark  = Color(0xFF1A1A2E)
 private val TextGray  = Color(0xFF65676B)
+private val Teal      = Color(0xFF00897B)
 
 @Composable
 fun PerfilGuarderiaScreen(
@@ -160,37 +155,25 @@ fun PerfilGuarderiaScreen(
     LaunchedEffect(state.successMsg) { state.successMsg?.let { snackbarHostState.showSnackbar(it); vm.clearMessages() } }
     LaunchedEffect(state.error)      { state.error?.let      { snackbarHostState.showSnackbar("⚠️ $it"); vm.clearMessages() } }
 
-    Scaffold(
-        snackbarHost   = { SnackbarHost(snackbarHostState) },
-        containerColor = Color(0xFFF5F5F5)
-    ) { padding ->
+    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, containerColor = Color(0xFFF5F5F5)) { padding ->
 
         if (state.isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Purple)
-            }
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Purple) }
             return@Scaffold
         }
 
         val g = state.guarderia ?: guarderia
 
-        LazyColumn(
-            modifier       = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(bottom = 40.dp)
-        ) {
-            // Header
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 40.dp)) {
+
+            // ── Header ─────────────────────────────────────────────────
             item {
                 Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
                     Box(modifier = Modifier.fillMaxWidth().height(160.dp).background(Brush.linearGradient(listOf(Purple, Color(0xFF9C27B0)))))
-                    IconButton(
-                        onClick  = onBack,
-                        modifier = Modifier.padding(8.dp).background(Color.Black.copy(alpha = 0.3f), CircleShape)
-                    ) {
+                    IconButton(onClick = onBack, modifier = Modifier.padding(8.dp).background(Color.Black.copy(alpha = 0.3f), CircleShape)) {
                         Icon(Icons.Default.ArrowBack, null, tint = Color.White)
                     }
-                    Box(
-                        modifier = Modifier.size(90.dp).align(Alignment.BottomStart).padding(start = 20.dp).clip(CircleShape).background(Color.White)
-                    ) {
+                    Box(modifier = Modifier.size(90.dp).align(Alignment.BottomStart).padding(start = 20.dp).clip(CircleShape).background(Color.White)) {
                         if (g.fotoUrl.isNotBlank()) {
                             AsyncImage(model = g.fotoUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(CircleShape))
                         } else {
@@ -202,16 +185,13 @@ fun PerfilGuarderiaScreen(
                 }
             }
 
-            // Nombre + estrellas
+            // ── Nombre + estrellas ─────────────────────────────────────
             item {
                 Column(modifier = Modifier.background(Color.White).padding(horizontal = 20.dp, vertical = 14.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(g.nombreGuarderia, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextDark, modifier = Modifier.weight(1f))
                         if (g.verificada) {
-                            Row(
-                                modifier = Modifier.background(Color(0xFFE8F5E9), RoundedCornerShape(20.dp)).padding(horizontal = 10.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
+                            Row(modifier = Modifier.background(Color(0xFFE8F5E9), RoundedCornerShape(20.dp)).padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.Verified, null, tint = Color(0xFF43A047), modifier = Modifier.size(14.dp))
                                 Spacer(Modifier.width(4.dp))
                                 Text("Verificada", color = Color(0xFF43A047), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
@@ -220,8 +200,13 @@ fun PerfilGuarderiaScreen(
                     }
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Estrellas con media estrella usando comparación de Double
                         repeat(5) { i ->
-                            Icon(Icons.Default.Star, null, tint = if (i < g.calificacionPromedio.toInt()) StarColor else Color.LightGray, modifier = Modifier.size(20.dp))
+                            Icon(
+                                Icons.Default.Star, null,
+                                tint = if (i.toDouble() < g.calificacionPromedio) StarColor else Color.LightGray,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                         Spacer(Modifier.width(8.dp))
                         Text(String.format("%.1f", g.calificacionPromedio), fontWeight = FontWeight.Bold, fontSize = 15.sp, color = TextDark)
@@ -231,43 +216,113 @@ fun PerfilGuarderiaScreen(
                 Spacer(Modifier.height(8.dp))
             }
 
-            // Info
+            // ── Carrusel de fotos ──────────────────────────────────────
+            if (g.fotos.isNotEmpty()) {
+                item {
+                    Card(shape = RoundedCornerShape(0.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Fotos", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextDark)
+                            Spacer(Modifier.height(12.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                g.fotos.take(3).forEach { fotoUrl ->
+                                    AsyncImage(
+                                        model = fotoUrl, contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.weight(1f).height(100.dp).clip(RoundedCornerShape(10.dp))
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+
+            // ── Descripción ────────────────────────────────────────────
+            if (g.descripcion.isNotBlank()) {
+                item {
+                    Card(shape = RoundedCornerShape(0.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Description, null, tint = Purple, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Sobre nosotros", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextDark)
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            Text(g.descripcion, fontSize = 14.sp, color = TextDark, lineHeight = 20.sp)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+
+            // ── Info de contacto ───────────────────────────────────────
             item {
                 Card(shape = RoundedCornerShape(0.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(20.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Text("Información", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextDark)
                         Spacer(Modifier.height(14.dp))
-                        InfoFila(Icons.Default.LocationOn, "Dirección", g.direccion)
+                        InfoFilaPerfil(Icons.Default.LocationOn, "Dirección", g.direccion)
                         Spacer(Modifier.height(10.dp))
-                        InfoFila(Icons.Default.Phone,      "Teléfono",  g.telefono)
+                        InfoFilaPerfil(Icons.Default.Phone,      "Teléfono",  g.telefono)
                         Spacer(Modifier.height(10.dp))
-                        InfoFila(Icons.Default.Email,      "Correo",    g.email)
+                        InfoFilaPerfil(Icons.Default.Email,      "Correo",    g.email)
                     }
                 }
                 Spacer(Modifier.height(8.dp))
             }
 
-            // Botón calificar
+            // ── Precio ─────────────────────────────────────────────────
+            if (g.precioMensual > 0) {
+                item {
+                    Card(shape = RoundedCornerShape(0.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.AttachMoney, null, tint = Teal, modifier = Modifier.size(22.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Column {
+                                Text("Precio mensual", fontSize = 12.sp, color = TextGray)
+                                val formato = NumberFormat.getNumberInstance(Locale("es", "CO"))
+                                Text("$ ${formato.format(g.precioMensual)} COP / mes", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Teal)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+
+            // ── Horarios ───────────────────────────────────────────────
+            if (g.horaApertura.isNotBlank() || g.horaCierre.isNotBlank() || g.diasAtencion.isNotBlank() || g.jornada.isNotBlank()) {
+                item {
+                    Card(shape = RoundedCornerShape(0.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Schedule, null, tint = Purple, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Horarios", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextDark)
+                            }
+                            Spacer(Modifier.height(14.dp))
+                            if (g.horaApertura.isNotBlank()) { InfoFilaPerfil(Icons.Default.AccessTime,    "Apertura", g.horaApertura); Spacer(Modifier.height(8.dp)) }
+                            if (g.horaCierre.isNotBlank())   { InfoFilaPerfil(Icons.Default.AccessTime,    "Cierre",   g.horaCierre);   Spacer(Modifier.height(8.dp)) }
+                            if (g.diasAtencion.isNotBlank()) { InfoFilaPerfil(Icons.Default.CalendarMonth, "Días",     g.diasAtencion); Spacer(Modifier.height(8.dp)) }
+                            if (g.jornada.isNotBlank())      { InfoFilaPerfil(Icons.Default.WbSunny,       "Jornada",  g.jornada) }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+
+            // ── Botón calificar ────────────────────────────────────────
             item {
                 Card(shape = RoundedCornerShape(0.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                     Box(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
                         if (state.yaCalificó) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().background(Color(0xFFE8F5E9), RoundedCornerShape(12.dp)).padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
+                            Row(modifier = Modifier.fillMaxWidth().background(Color(0xFFE8F5E9), RoundedCornerShape(12.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                                 Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF43A047))
                                 Spacer(Modifier.width(8.dp))
                                 Text("Ya enviaste tu reseña", color = Color(0xFF43A047), fontWeight = FontWeight.SemiBold)
                             }
                         } else {
-                            Button(
-                                onClick  = { showDialog = true },
-                                shape    = RoundedCornerShape(14.dp),
-                                colors   = ButtonDefaults.buttonColors(containerColor = Purple),
-                                modifier = Modifier.fillMaxWidth().height(52.dp)
-                            ) {
+                            Button(onClick = { showDialog = true }, shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = Purple), modifier = Modifier.fillMaxWidth().height(52.dp)) {
                                 Icon(Icons.Default.Star, null, tint = Color.White)
                                 Spacer(Modifier.width(8.dp))
                                 Text("Calificar y comentar", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
@@ -278,7 +333,7 @@ fun PerfilGuarderiaScreen(
                 Spacer(Modifier.height(8.dp))
             }
 
-            // Título reseñas
+            // ── Reseñas ────────────────────────────────────────────────
             item {
                 Box(modifier = Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 20.dp, vertical = 14.dp)) {
                     Text("Reseñas", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextDark)
@@ -292,13 +347,13 @@ fun PerfilGuarderiaScreen(
                     }
                 }
             } else {
-                items(state.resenas) { resena -> ResenaCard(resena) }
+                items(state.resenas) { resena -> ResenaCardPerfil(resena) }
             }
         }
     }
 
     if (showDialog) {
-        CalificarDialog(
+        CalificarDialogPerfil(
             onDismiss = { showDialog = false },
             onEnviar  = { cal, com -> vm.enviarResena(guarderia.uid, cal, com); showDialog = false },
             isSending = state.isSending
@@ -307,7 +362,7 @@ fun PerfilGuarderiaScreen(
 }
 
 @Composable
-private fun InfoFila(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
+private fun InfoFilaPerfil(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
     Row(verticalAlignment = Alignment.Top) {
         Icon(icon, null, tint = Purple, modifier = Modifier.size(20.dp).padding(top = 2.dp))
         Spacer(Modifier.width(12.dp))
@@ -319,7 +374,7 @@ private fun InfoFila(icon: androidx.compose.ui.graphics.vector.ImageVector, labe
 }
 
 @Composable
-private fun ResenaCard(resena: Resena) {
+private fun ResenaCardPerfil(resena: Resena) {
     Card(shape = RoundedCornerShape(0.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth().padding(top = 1.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -345,7 +400,7 @@ private fun ResenaCard(resena: Resena) {
 }
 
 @Composable
-private fun CalificarDialog(onDismiss: () -> Unit, onEnviar: (Int, String) -> Unit, isSending: Boolean) {
+private fun CalificarDialogPerfil(onDismiss: () -> Unit, onEnviar: (Int, String) -> Unit, isSending: Boolean) {
     var calificacion by remember { mutableStateOf(5) }
     var comentario   by remember { mutableStateOf("") }
 
@@ -374,17 +429,11 @@ private fun CalificarDialog(onDismiss: () -> Unit, onEnviar: (Int, String) -> Un
                 Spacer(Modifier.height(16.dp))
 
                 OutlinedTextField(
-                    value         = comentario,
-                    onValueChange = { comentario = it },
-                    label         = { Text("Escribe tu comentario", color = TextGray) },
-                    placeholder   = { Text("Cuéntanos tu experiencia…", color = Color.LightGray) },
-                    minLines      = 3,
-                    maxLines      = 5,
-                    shape         = RoundedCornerShape(12.dp),
-                    colors        = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Purple, focusedLabelColor = Purple,
-                        focusedTextColor   = TextDark, unfocusedTextColor = TextDark
-                    ),
+                    value = comentario, onValueChange = { comentario = it },
+                    label = { Text("Escribe tu comentario", color = TextGray) },
+                    placeholder = { Text("Cuéntanos tu experiencia…", color = Color.LightGray) },
+                    minLines = 3, maxLines = 5, shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Purple, focusedLabelColor = Purple, focusedTextColor = TextDark, unfocusedTextColor = TextDark),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(20.dp))
@@ -393,10 +442,10 @@ private fun CalificarDialog(onDismiss: () -> Unit, onEnviar: (Int, String) -> Un
                     TextButton(onClick = onDismiss) { Text("Cancelar", color = TextGray) }
                     Spacer(Modifier.width(8.dp))
                     Button(
-                        onClick  = { onEnviar(calificacion, comentario) },
-                        enabled  = !isSending && comentario.isNotBlank(),
-                        colors   = ButtonDefaults.buttonColors(containerColor = Purple),
-                        shape    = RoundedCornerShape(10.dp)
+                        onClick = { onEnviar(calificacion, comentario) },
+                        enabled = !isSending && comentario.isNotBlank(),
+                        colors  = ButtonDefaults.buttonColors(containerColor = Purple),
+                        shape   = RoundedCornerShape(10.dp)
                     ) {
                         if (isSending) CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
                         else Text("Publicar reseña", color = Color.White, fontWeight = FontWeight.Bold)

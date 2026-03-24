@@ -24,6 +24,20 @@ data class Guarderia(
     val calificacionPromedio: Double     = 0.0,
     @SerialName("total_resenas")
     val totalResenas: Int                = 0,
+    val latitud: Double?                 = null,
+    val longitud: Double?                = null,
+    // ── Nuevos campos ─────────────────────────────────────────────────
+    val descripcion: String              = "",
+    @SerialName("precio_mensual")
+    val precioMensual: Int               = 0,
+    @SerialName("hora_apertura")
+    val horaApertura: String             = "",
+    @SerialName("hora_cierre")
+    val horaCierre: String               = "",
+    @SerialName("dias_atencion")
+    val diasAtencion: String             = "",
+    val jornada: String                  = "",
+    val fotos: List<String>              = emptyList(),
     @SerialName("created_at")
     val createdAt: String                = ""
 )

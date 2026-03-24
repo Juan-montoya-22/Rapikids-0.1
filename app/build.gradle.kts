@@ -72,4 +72,5 @@ dependencies {
     implementation("io.ktor:ktor-client-android:3.1.3")
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("com.google.android.gms:play-services-location:21.2.0")
 }

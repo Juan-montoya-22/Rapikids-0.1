@@ -13,13 +13,33 @@ import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.storage.storage
 import io.github.jan.supabase.storage.upload
+import io.ktor.client.*
+import io.ktor.client.call.*
+import io.ktor.client.engine.android.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.request.*
+import io.ktor.serialization.kotlinx.json.*
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 private const val ADMIN_SECRET_CODE = "RAPIKIDS-ADMIN-2026"
+
+@Serializable
+private data class NominatimResult(
+    val lat: String = "",
+    val lon: String = ""
+)
 
 class AuthRepository {
 
     val currentUser get() = client.auth.currentUserOrNull()
     val isLoggedIn  get() = client.auth.currentUserOrNull() != null
+
+    private val httpClient = HttpClient(Android) {
+        install(ContentNegotiation) {
+            json(Json { ignoreUnknownKeys = true })
+        }
+    }
 
     // ── Login ─────────────────────────────────────────────────────────
     suspend fun login(email: String, password: String): Result<UserRole> {
@@ -81,7 +101,6 @@ class AuthRepository {
     }
 
     // ── Registro Guardería ────────────────────────────────────────────
-    // Ahora recibe Context y Uri para subir el documento a Storage
     suspend fun registerGuarderia(
         context: Context,
         nombreGuarderia: String,
@@ -101,7 +120,7 @@ class AuthRepository {
             val uid = client.auth.currentUserOrNull()?.id
                 ?: return Result.failure(Exception("No se pudo obtener el UID"))
 
-            // ── Subir documento a Supabase Storage ────────────────────
+            // ── Subir documento a Storage ─────────────────────────────
             var documentoUrl = ""
             if (documentoUri.isNotBlank()) {
                 try {
@@ -114,42 +133,99 @@ class AuthRepository {
                         bucket.upload(filePath, bytes) { upsert = true }
                         documentoUrl = bucket.publicUrl(filePath)
                     }
-                } catch (e: Exception) {
-                    // Si falla la subida del doc, continuamos sin él
-                    documentoUrl = ""
-                }
+                } catch (_: Exception) {}
             }
+
+            // ── Geocodificar dirección al registrarse ─────────────────
+            val (latitud, longitud) = geocodificarDireccionRegistro(direccion)
 
             // ── Insertar en users ─────────────────────────────────────
             client.postgrest["users"].insert(
-                Usuario(
-                    uid      = uid,
-                    email    = email,
-                    nombre   = nombreGuarderia,
-                    telefono = telefono,
-                    role     = "GUARDERIA"
-                )
+                Usuario(uid = uid, email = email, nombre = nombreGuarderia, telefono = telefono, role = "GUARDERIA")
             )
 
-            // ── Insertar en guarderias ────────────────────────────────
-            client.postgrest["guarderias"].insert(
-                Guarderia(
-                    uid             = uid,
-                    email           = email,
-                    nombreGuarderia = nombreGuarderia,
-                    direccion       = direccion,
-                    nit             = nit,
-                    telefono        = telefono,
-                    documentoUrl    = documentoUrl,
-                    verificada      = false,
-                    estado          = "pendiente"
-                )
-            )
+            // ── Insertar en guarderias con coordenadas ────────────────
+            val guarderiaJson = kotlinx.serialization.json.buildJsonObject {
+                put("uid",              kotlinx.serialization.json.JsonPrimitive(uid.toString()))
+                put("email",            kotlinx.serialization.json.JsonPrimitive(email))
+                put("nombre_guarderia", kotlinx.serialization.json.JsonPrimitive(nombreGuarderia))
+                put("direccion",        kotlinx.serialization.json.JsonPrimitive(direccion))
+                put("nit",              kotlinx.serialization.json.JsonPrimitive(nit))
+                put("telefono",         kotlinx.serialization.json.JsonPrimitive(telefono))
+                put("documento_url",    kotlinx.serialization.json.JsonPrimitive(documentoUrl))
+                put("verificada",       kotlinx.serialization.json.JsonPrimitive(false))
+                put("estado",           kotlinx.serialization.json.JsonPrimitive("pendiente"))
+                put("descripcion",      kotlinx.serialization.json.JsonPrimitive(""))
+                put("precio_mensual",   kotlinx.serialization.json.JsonPrimitive(0))
+                put("hora_apertura",    kotlinx.serialization.json.JsonPrimitive(""))
+                put("hora_cierre",      kotlinx.serialization.json.JsonPrimitive(""))
+                put("dias_atencion",    kotlinx.serialization.json.JsonPrimitive(""))
+                put("jornada",          kotlinx.serialization.json.JsonPrimitive(""))
+                if (latitud != null)  put("latitud",  kotlinx.serialization.json.JsonPrimitive(latitud))
+                if (longitud != null) put("longitud", kotlinx.serialization.json.JsonPrimitive(longitud))
+            }
+            client.postgrest["guarderias"].insert(guarderiaJson)
 
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    // ── Geocodificar dirección usando Nominatim ───────────────────────
+    private suspend fun geocodificarDireccionRegistro(direccion: String): Pair<Double?, Double?> {
+        return try {
+            val query = normalizarDireccion(direccion)
+
+            val response = httpClient.get("https://nominatim.openstreetmap.org/search") {
+                parameter("q", query)
+                parameter("format", "json")
+                parameter("limit", "1")
+                parameter("countrycodes", "co")
+                header("User-Agent", "Rapikids/1.0 soporte@rapikids.com")
+                header("Accept-Language", "es")
+            }
+
+            val results = response.body<List<NominatimResult>>()
+            val first = results.firstOrNull() ?: return Pair(null, null)
+            Pair(first.lat.toDouble(), first.lon.toDouble())
+        } catch (_: Exception) {
+            Pair(null, null)
+        }
+    }
+
+    // ── Normalizar dirección colombiana ───────────────────────────────
+    // Maneja casos como: "calle141#103f-37" → "Calle 141, Bogotá, Colombia"
+    private fun normalizarDireccion(direccion: String): String {
+        var dir = direccion.trim().lowercase()
+
+        // 1. Expandir abreviaciones pegadas a número: "calle141" → "calle 141"
+        dir = dir.replace(Regex("(?i)(calle|carrera|avenida|diagonal|transversal|cra|cll|cl|cr|av|dg|tv)(\\d)"), "$1 $2")
+
+        // 2. Expandir abreviaciones colombianas
+        dir = dir.replace(Regex("(?i)\\bcll?\\.?\\s+"), "Calle ")
+        dir = dir.replace(Regex("(?i)\\bcra?\\.?\\s+"), "Carrera ")
+        dir = dir.replace(Regex("(?i)\\bav\\.?\\s+|\\bavda\\.?\\s+"), "Avenida ")
+        dir = dir.replace(Regex("(?i)\\bdg\\.?\\s+|\\bdiag\\.?\\s+"), "Diagonal ")
+        dir = dir.replace(Regex("(?i)\\btv\\.?\\s+|\\btransv\\.?\\s+"), "Transversal ")
+
+        // 3. Eliminar número de apartamento/local: "#103f-37" → ""
+        dir = dir.replace(Regex("#[^,]+"), "").trim()
+
+        // 4. Eliminar letra suelta al final de número: "141b" → "141"
+        dir = dir.replace(Regex("(\\d+)[a-zA-Z]\\b"), "$1")
+
+        // 5. Capitalizar primera letra de cada palabra clave
+        dir = dir.replace(Regex("(?i)\\bcalle\\b"), "Calle")
+        dir = dir.replace(Regex("(?i)\\bcarrera\\b"), "Carrera")
+        dir = dir.replace(Regex("(?i)\\bavenida\\b"), "Avenida")
+        dir = dir.replace(Regex("(?i)\\bdiagonal\\b"), "Diagonal")
+        dir = dir.replace(Regex("(?i)\\btransversal\\b"), "Transversal")
+
+        // 6. Limpiar caracteres extra
+        dir = dir.replace(",", "").replace(Regex("\\s+"), " ").trim()
+
+        return "$dir, Bogotá, Colombia"
     }
 
     // ── Registro Admin ────────────────────────────────────────────────
