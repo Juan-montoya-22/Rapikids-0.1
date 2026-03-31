@@ -12,6 +12,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.example.rapikids01.data.supabase.SupabaseClient.client
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.query.Columns
 
 data class GuarderiaConDistancia(
     val guarderia: Guarderia,
@@ -27,7 +31,8 @@ data class HomePadreUiState(
     val error: String?              = null,
     val ubicacionActual: LatLng?    = null,
     val filtroCercanas: Boolean     = false,
-    val permisoDenegado: Boolean    = false
+    val permisoDenegado: Boolean    = false,
+    val nombrePadre: String         = ""
 )
 
 class HomePadreViewModel(
@@ -39,7 +44,25 @@ class HomePadreViewModel(
 
     private var locationService: LocationService? = null
 
-    init { cargarGuarderias() }
+    init {
+        cargarGuarderias()
+        cargarNombrePadre()
+    }
+
+    private fun cargarNombrePadre() {
+        viewModelScope.launch {
+            try {
+                val uid = client.auth.currentUserOrNull()?.id ?: return@launch
+                val resultado = client.postgrest["users"]
+                    .select(Columns.list("nombre")) {
+                        filter { eq("uid", uid) }
+                    }
+                    .decodeList<Map<String, String>>()
+                val nombre = resultado.firstOrNull()?.get("nombre") ?: ""
+                _uiState.update { it.copy(nombrePadre = nombre) }
+            } catch (_: Exception) {}
+        }
+    }
 
     fun inicializarLocation(context: Context) {
         if (locationService == null) locationService = LocationService(context)

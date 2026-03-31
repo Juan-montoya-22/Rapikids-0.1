@@ -30,11 +30,14 @@ class GuarderiaProfileRepository {
                 ?: return Result.failure(Exception("Usuario no autenticado"))
             cachedUid = id
 
+            // 👇 Filtra directo en Supabase, más seguro
             val lista = client.postgrest["guarderias"]
-                .select()
+                .select {
+                    filter { eq("uid", id) }
+                }
                 .decodeList<Guarderia>()
 
-            val guarderia = lista.firstOrNull { it.uid == id }
+            val guarderia = lista.firstOrNull()
                 ?: return Result.failure(Exception("Perfil no encontrado"))
 
             Result.success(guarderia)

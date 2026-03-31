@@ -54,6 +54,9 @@ fun HomeAdminScreen(
     var guarderiaArechazar by remember { mutableStateOf<Guarderia?>(null) }
     var motivoRechazo by remember { mutableStateOf("") }
 
+    // Recargar cada vez que el admin entra a la pantalla
+    LaunchedEffect(Unit) { viewModel.cargarDatos() }
+
     LaunchedEffect(state.successMsg) {
         state.successMsg?.let { snackbarHostState.showSnackbar(it); viewModel.clearMessages() }
     }
@@ -80,11 +83,20 @@ fun HomeAdminScreen(
                         Text("Panel de Control", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Text("Administrador Rapikids", fontSize = 12.sp, color = RedLight)
                     }
-                    IconButton(
-                        onClick  = onLogout,
-                        modifier = Modifier.background(Color.White.copy(alpha = 0.1f), CircleShape)
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Salir", tint = RedAccent)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // Botón refresh
+                        IconButton(
+                            onClick  = { viewModel.cargarDatos() },
+                            modifier = Modifier.background(Color.White.copy(alpha = 0.1f), CircleShape)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Actualizar", tint = Color.White)
+                        }
+                        IconButton(
+                            onClick  = onLogout,
+                            modifier = Modifier.background(Color.White.copy(alpha = 0.1f), CircleShape)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Salir", tint = RedAccent)
+                        }
                     }
                 }
             }

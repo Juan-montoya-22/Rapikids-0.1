@@ -79,7 +79,11 @@ fun HomePadreScreen(
                 Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column {
-                            Text("¡Hola! 👋", fontSize = 14.sp, color = Color.White.copy(alpha = 0.85f))
+                            Text(
+                                text = if (state.nombrePadre.isNotBlank()) "¡Hola, ${state.nombrePadre}! 👋" else "¡Hola! 👋",
+                                fontSize = 14.sp,
+                                color = Color.White.copy(alpha = 0.85f)
+                            )
                             Text("Encuentra una guardería", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
                         IconButton(onClick = onLogout, modifier = Modifier.size(40.dp).background(Color.White.copy(alpha = 0.2f), CircleShape)) {

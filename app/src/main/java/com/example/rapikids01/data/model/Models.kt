@@ -73,5 +73,7 @@ data class Resena(
     val calificacion: Int            = 0,
     val comentario: String           = "",
     @SerialName("created_at")
-    val createdAt: String            = ""
+    val createdAt: String            = "",
+    @SerialName("nombre_padre")
+    val nombrePadre: String          = "",
 )

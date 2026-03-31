@@ -105,8 +105,23 @@ class PerfilGuarderiaViewModel : ViewModel() {
                 val padreUid = client.auth.currentUserOrNull()?.id?.toString()
                     ?: throw Exception("No autenticado")
 
+                val nombrePadre = try {
+                    client.postgrest["users"]
+                        .select(io.github.jan.supabase.postgrest.query.Columns.list("nombre")) {
+                            filter { eq("uid", padreUid) }
+                        }
+                        .decodeList<Map<String, String>>()
+                        .firstOrNull()?.get("nombre") ?: "Padre"
+                } catch (_: Exception) { "Padre" }
+
                 client.postgrest["resenas"].insert(
-                    ResenaInsert(guarderiaUid = guarderiaUid, padreUid = padreUid, calificacion = calificacion, comentario = comentario)
+                    buildJsonObject {
+                        put("guarderia_uid", JsonPrimitive(guarderiaUid))
+                        put("padre_uid",     JsonPrimitive(padreUid))
+                        put("calificacion",  JsonPrimitive(calificacion))
+                        put("comentario",    JsonPrimitive(comentario))
+                        put("nombre_padre",  JsonPrimitive(nombrePadre))
+                    }
                 )
 
                 val todasResenas = client.postgrest["resenas"]
@@ -383,7 +398,10 @@ private fun ResenaCardPerfil(resena: Resena) {
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Padre / Acudiente", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = TextDark)
+                    Text(
+                        text = resena.nombrePadre.ifBlank { "Padre / Acudiente" },
+                        fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = TextDark
+                    )
                     Text(resena.createdAt.take(10), color = TextGray, fontSize = 11.sp)
                 }
                 Row {
