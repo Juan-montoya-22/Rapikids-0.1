@@ -32,7 +32,8 @@ data class HomePadreUiState(
     val ubicacionActual: LatLng?    = null,
     val filtroCercanas: Boolean     = false,
     val permisoDenegado: Boolean    = false,
-    val nombrePadre: String         = ""
+    val nombrePadre: String         = "",
+    val mostrarMapa: Boolean = false
 )
 
 class HomePadreViewModel(
@@ -64,6 +65,7 @@ class HomePadreViewModel(
         }
     }
 
+    fun toggleMapa() = _uiState.update { it.copy(mostrarMapa = !it.mostrarMapa) }
     fun inicializarLocation(context: Context) {
         if (locationService == null) locationService = LocationService(context)
     }
@@ -108,7 +110,6 @@ class HomePadreViewModel(
 
     fun onPermisoDenegado() = _uiState.update { it.copy(permisoDenegado = true, isLoadingUbicacion = false) }
 
-    // Usa coordenadas guardadas en Supabase — sin geocodificar en tiempo real
     private fun calcularDistanciasDesdeSupabase(ubicacionPadre: LatLng) {
         val service = locationService ?: return
 

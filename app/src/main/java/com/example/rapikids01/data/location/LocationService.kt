@@ -55,24 +55,15 @@ class LocationService(private val context: Context) {
         }
     }
 
-    // Normaliza "Calle 141b #107F-36" → "Calle 141, Bogotá, Colombia"
     private fun normalizarDireccion(direccion: String): String {
         var dir = direccion.trim()
-
-        // Expandir abreviaciones colombianas
         dir = dir.replace(Regex("(?i)\\bCl\\.?\\s"), "Calle ")
         dir = dir.replace(Regex("(?i)\\bCr\\.?\\s|\\bCra\\.?\\s"), "Carrera ")
         dir = dir.replace(Regex("(?i)\\bAv\\.?\\s|\\bAvda\\.?\\s"), "Avenida ")
         dir = dir.replace(Regex("(?i)\\bDg\\.?\\s|\\bDiag\\.?\\s"), "Diagonal ")
         dir = dir.replace(Regex("(?i)\\bTv\\.?\\s|\\bTransv\\.?\\s"), "Transversal ")
-
-        // Eliminar número de apartamento/local: "#107F-36" → ""
         dir = dir.replace(Regex("#[^,]+"), "").trim()
-
-        // Eliminar letra suelta al final de número: "141b" → "141"
         dir = dir.replace(Regex("(\\d+)[a-zA-Z]\\b"), "$1")
-
-        // Limpiar
         dir = dir.replace(",", "").replace(Regex("\\s+"), " ").trim()
 
         return "$dir, Bogotá, Colombia"
@@ -101,8 +92,6 @@ class LocationService(private val context: Context) {
             Result.failure(e)
         }
     }
-
-    // Si falla con dirección completa, buscar solo palabras clave en Bogotá
     private suspend fun geocodificarFallback(direccion: String): Result<LatLng> {
         return try {
             val soloTexto = direccion

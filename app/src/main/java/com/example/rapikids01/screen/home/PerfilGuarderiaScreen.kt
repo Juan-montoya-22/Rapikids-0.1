@@ -69,7 +69,6 @@ class PerfilGuarderiaViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                // Cargar perfil COMPLETO desde Supabase (con todos los campos nuevos)
                 val guarderia = client.postgrest["guarderias"]
                     .select()
                     .decodeList<Guarderia>()
@@ -149,7 +148,6 @@ class PerfilGuarderiaViewModel : ViewModel() {
     fun clearMessages() = _uiState.update { it.copy(error = null, successMsg = null) }
 }
 
-// ── Colores ───────────────────────────────────────────────────────────────────
 private val Purple    = Color(0xFF6A4DBA)
 private val StarColor = Color(0xFFFFC107)
 private val TextDark  = Color(0xFF1A1A2E)
@@ -180,8 +178,6 @@ fun PerfilGuarderiaScreen(
         val g = state.guarderia ?: guarderia
 
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 40.dp)) {
-
-            // ── Header ─────────────────────────────────────────────────
             item {
                 Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
                     Box(modifier = Modifier.fillMaxWidth().height(160.dp).background(Brush.linearGradient(listOf(Purple, Color(0xFF9C27B0)))))
@@ -200,7 +196,6 @@ fun PerfilGuarderiaScreen(
                 }
             }
 
-            // ── Nombre + estrellas ─────────────────────────────────────
             item {
                 Column(modifier = Modifier.background(Color.White).padding(horizontal = 20.dp, vertical = 14.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -215,7 +210,6 @@ fun PerfilGuarderiaScreen(
                     }
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Estrellas con media estrella usando comparación de Double
                         repeat(5) { i ->
                             Icon(
                                 Icons.Default.Star, null,
@@ -230,8 +224,6 @@ fun PerfilGuarderiaScreen(
                 }
                 Spacer(Modifier.height(8.dp))
             }
-
-            // ── Carrusel de fotos ──────────────────────────────────────
             if (g.fotos.isNotEmpty()) {
                 item {
                     Card(shape = RoundedCornerShape(0.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
@@ -252,8 +244,6 @@ fun PerfilGuarderiaScreen(
                     Spacer(Modifier.height(8.dp))
                 }
             }
-
-            // ── Descripción ────────────────────────────────────────────
             if (g.descripcion.isNotBlank()) {
                 item {
                     Card(shape = RoundedCornerShape(0.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
@@ -270,8 +260,6 @@ fun PerfilGuarderiaScreen(
                     Spacer(Modifier.height(8.dp))
                 }
             }
-
-            // ── Info de contacto ───────────────────────────────────────
             item {
                 Card(shape = RoundedCornerShape(0.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -286,8 +274,6 @@ fun PerfilGuarderiaScreen(
                 }
                 Spacer(Modifier.height(8.dp))
             }
-
-            // ── Precio ─────────────────────────────────────────────────
             if (g.precioMensual > 0) {
                 item {
                     Card(shape = RoundedCornerShape(0.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
@@ -304,8 +290,6 @@ fun PerfilGuarderiaScreen(
                     Spacer(Modifier.height(8.dp))
                 }
             }
-
-            // ── Horarios ───────────────────────────────────────────────
             if (g.horaApertura.isNotBlank() || g.horaCierre.isNotBlank() || g.diasAtencion.isNotBlank() || g.jornada.isNotBlank()) {
                 item {
                     Card(shape = RoundedCornerShape(0.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
@@ -325,8 +309,6 @@ fun PerfilGuarderiaScreen(
                     Spacer(Modifier.height(8.dp))
                 }
             }
-
-            // ── Botón calificar ────────────────────────────────────────
             item {
                 Card(shape = RoundedCornerShape(0.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                     Box(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
@@ -347,8 +329,6 @@ fun PerfilGuarderiaScreen(
                 }
                 Spacer(Modifier.height(8.dp))
             }
-
-            // ── Reseñas ────────────────────────────────────────────────
             item {
                 Box(modifier = Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 20.dp, vertical = 14.dp)) {
                     Text("Reseñas", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextDark)

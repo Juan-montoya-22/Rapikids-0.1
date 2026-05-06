@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -48,12 +49,60 @@ fun RegisterPadreScreen(
     var showConfirmPassword by remember { mutableStateOf(false) }
     var aceptaTerminos      by remember { mutableStateOf(false) }
 
-    LaunchedEffect(state.success) {
-        if (state.success) {
-            navController.navigate(Routes.LOGIN_PADRE) {
-                popUpTo(Routes.REGISTER_PADRE) { inclusive = true }
+    if (state.success) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Registro de Padre / Acudiente", fontWeight = FontWeight.Bold) },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor    = Purple,
+                        titleContentColor = Color.White
+                    )
+                )
+            }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text("📧", fontSize = 64.sp)
+                Spacer(Modifier.height(24.dp))
+                Text(
+                    "¡Revisa tu correo!",
+                    fontSize   = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color      = Purple
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text      = "Te enviamos un enlace de verificación a ${state.email}. " +
+                            "Una vez que confirmes tu correo podrás iniciar sesión como padre/acudiente.",
+                    fontSize  = 15.sp,
+                    color     = Color.Gray,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 22.sp
+                )
+                Spacer(Modifier.height(32.dp))
+                Button(
+                    onClick = {
+                        authViewModel.resetPadreState()
+                        navController.navigate(Routes.LOGIN_PADRE) {
+                            popUpTo(Routes.REGISTER_PADRE) { inclusive = true }
+                        }
+                    },
+                    shape    = RoundedCornerShape(12.dp),
+                    colors   = ButtonDefaults.buttonColors(containerColor = Purple),
+                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                ) {
+                    Text("Ir al inicio de sesión", fontWeight = FontWeight.SemiBold, color = Color.White)
+                }
             }
         }
+        return
     }
 
     Scaffold(
@@ -147,7 +196,6 @@ fun RegisterPadreScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // ── Checkbox términos y condiciones ────────────────────────
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier          = Modifier.fillMaxWidth()
@@ -165,38 +213,19 @@ fun RegisterPadreScreen(
                             color          = Purple,
                             fontWeight     = FontWeight.SemiBold,
                             textDecoration = TextDecoration.Underline
-                        )) {
-                            append("Términos y Condiciones")
-                        }
+                        )) { append("Términos y Condiciones") }
                         append(" de Rapikids")
                     },
                     fontSize = 13.sp,
-                    modifier = androidx.compose.ui.Modifier.weight(1f)
-                        .then(
-                            androidx.compose.ui.Modifier.clickable(
-                                // Texto clicable para abrir los términos
-                                onClick = {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(TERMS_URL))
-                                    context.startActivity(intent)
-                                }
-                            )
-                        )
-                )
-            }
-
-            // Aviso si no aceptó
-            if (!aceptaTerminos && state.error?.contains("términos") == true) {
-                Text(
-                    text     = "⚠️ Debes aceptar los términos para continuar",
-                    color    = Color(0xFFB71C1C),
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(start = 12.dp)
+                    modifier = Modifier.weight(1f).clickable {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(TERMS_URL))
+                        context.startActivity(intent)
+                    }
                 )
             }
 
             Spacer(Modifier.height(16.dp))
 
-            // ── Error ──────────────────────────────────────────────────
             if (state.error != null) {
                 Card(
                     colors   = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
@@ -213,13 +242,9 @@ fun RegisterPadreScreen(
                 Spacer(Modifier.height(12.dp))
             }
 
-            // ── Botón registrar ────────────────────────────────────────
             Button(
                 onClick = {
-                    if (!aceptaTerminos) {
-                        // Mostrar error de términos via snackbar o estado
-                        return@Button
-                    }
+                    if (!aceptaTerminos) return@Button
                     authViewModel.registerPadre()
                 },
                 enabled  = !state.isLoading,
@@ -236,15 +261,14 @@ fun RegisterPadreScreen(
                 }
             }
 
-            // Aviso debajo del botón si no aceptó términos
             if (!aceptaTerminos) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text     = "Debes aceptar los términos y condiciones para registrarte",
-                    color    = Color.Gray,
-                    fontSize = 12.sp,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    text      = "Debes aceptar los términos y condiciones para registrarte",
+                    color     = Color.Gray,
+                    fontSize  = 12.sp,
+                    modifier  = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
                 )
             }
 

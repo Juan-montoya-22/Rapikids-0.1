@@ -25,7 +25,6 @@ import androidx.navigation.NavController
 import com.example.rapikids01.navigation.Routes
 import com.example.rapikids01.viewmodel.AuthViewModel
 
-// ── Colores panel de control ──────────────────────────────────────────────────
 private val DarkBg     = Color(0xFF1A1A2E)
 private val DarkCard   = Color(0xFF16213E)
 private val RedAccent  = Color(0xFFE53935)
@@ -42,7 +41,6 @@ fun RegisterAdminScreen(
     var showConfirmPassword by remember { mutableStateOf(false) }
     var showCodigo          by remember { mutableStateOf(false) }
 
-    // Navegar al éxito
     LaunchedEffect(state.success) {
         if (state.success) {
             navController.navigate(Routes.LOGIN_ADMIN) {
@@ -86,8 +84,6 @@ fun RegisterAdminScreen(
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
-            // Ícono admin
             Box(
                 modifier = Modifier
                     .size(80.dp)
@@ -106,7 +102,6 @@ fun RegisterAdminScreen(
             Text("Panel de Administración", fontSize = 14.sp, color = RedLight)
             Spacer(Modifier.height(24.dp))
 
-            // Campos
             AdminField(
                 value         = state.nombre,
                 onValueChange = authViewModel::onAdminNombreChange,
@@ -132,7 +127,6 @@ fun RegisterAdminScreen(
             )
             Spacer(Modifier.height(12.dp))
 
-            // Contraseña
             OutlinedTextField(
                 value         = state.password,
                 onValueChange = authViewModel::onAdminPasswordChange,
@@ -154,7 +148,6 @@ fun RegisterAdminScreen(
             )
             Spacer(Modifier.height(12.dp))
 
-            // Confirmar contraseña
             OutlinedTextField(
                 value         = state.confirmPassword,
                 onValueChange = authViewModel::onAdminConfirmPasswordChange,
@@ -176,7 +169,6 @@ fun RegisterAdminScreen(
             )
             Spacer(Modifier.height(16.dp))
 
-            // Código secreto
             HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
             Spacer(Modifier.height(16.dp))
             Text(
@@ -209,7 +201,6 @@ fun RegisterAdminScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // Error
             if (state.error != null) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = RedAccent.copy(alpha = 0.15f)),
@@ -226,7 +217,6 @@ fun RegisterAdminScreen(
                 Spacer(Modifier.height(12.dp))
             }
 
-            // Botón registrar
             Button(
                 onClick  = authViewModel::registerAdmin,
                 enabled  = !state.isLoading,

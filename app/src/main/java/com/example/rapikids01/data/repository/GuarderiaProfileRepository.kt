@@ -30,7 +30,6 @@ class GuarderiaProfileRepository {
                 ?: return Result.failure(Exception("Usuario no autenticado"))
             cachedUid = id
 
-            // 👇 Filtra directo en Supabase, más seguro
             val lista = client.postgrest["guarderias"]
                 .select {
                     filter { eq("uid", id) }
@@ -45,8 +44,6 @@ class GuarderiaProfileRepository {
             Result.failure(e)
         }
     }
-
-    // ── Actualizar perfil con nuevos campos ───────────────────────────
     suspend fun actualizarPerfil(
         nombreGuarderia: String,
         direccion: String,
@@ -81,8 +78,6 @@ class GuarderiaProfileRepository {
             Result.failure(e)
         }
     }
-
-    // ── Subir foto de perfil ──────────────────────────────────────────
     suspend fun subirFoto(context: Context, uri: Uri): Result<String> {
         return try {
             val id = getUid() ?: return Result.failure(Exception("Sesión expirada"))
@@ -106,8 +101,6 @@ class GuarderiaProfileRepository {
             Result.failure(e)
         }
     }
-
-    // ── Subir foto al carrusel (máx 3) ────────────────────────────────
     suspend fun subirFotoCarrusel(
         context: Context,
         uri: Uri,
@@ -124,8 +117,6 @@ class GuarderiaProfileRepository {
             val bucket    = client.storage["guarderias"]
             bucket.upload(filePath, bytes) { upsert = true }
             val publicUrl = bucket.publicUrl(filePath) + "?t=${System.currentTimeMillis()}"
-
-            // Actualizar lista de fotos
             val nuevasFotos = fotosActuales.toMutableList()
             while (nuevasFotos.size <= indice) nuevasFotos.add("")
             nuevasFotos[indice] = publicUrl
@@ -147,8 +138,6 @@ class GuarderiaProfileRepository {
             Result.failure(e)
         }
     }
-
-    // ── Eliminar foto del carrusel ────────────────────────────────────
     suspend fun eliminarFotoCarrusel(
         fotosActuales: List<String>,
         indice: Int
@@ -176,8 +165,6 @@ class GuarderiaProfileRepository {
             Result.failure(e)
         }
     }
-
-    // ── Re-subir documento cuando fue rechazada ───────────────────────
     suspend fun resubirDocumento(context: Context, uri: Uri): Result<Unit> {
         return try {
             val id = getUid() ?: return Result.failure(Exception("Sesión expirada"))

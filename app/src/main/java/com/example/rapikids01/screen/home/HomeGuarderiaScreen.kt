@@ -55,6 +55,8 @@ fun HomeGuarderiaScreen(
     val state   by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
+    var mostrarFaq by remember { mutableStateOf(false) } // 👈 NUEVO
+
     val photoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let { viewModel.subirFoto(context, it) }
     }
@@ -62,7 +64,6 @@ fun HomeGuarderiaScreen(
         uri?.let { viewModel.resubirDocumento(context, it) }
     }
 
-    // Launchers carrusel — uno por slot
     var carruselSlotSeleccionado by remember { mutableStateOf(0) }
     val carruselLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let { viewModel.subirFotoCarrusel(context, it, carruselSlotSeleccionado) }
@@ -73,7 +74,24 @@ fun HomeGuarderiaScreen(
     LaunchedEffect(state.successMsg) { state.successMsg?.let { snackbarHostState.showSnackbar(it); viewModel.clearMessages() } }
     LaunchedEffect(state.error)      { state.error?.let      { snackbarHostState.showSnackbar("⚠️ $it"); viewModel.clearMessages() } }
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, containerColor = BgGray) { padding ->
+    if (mostrarFaq) {
+        FaqDialog(esPadre = false, onDismiss = { mostrarFaq = false })
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = BgGray,
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick        = { mostrarFaq = true },
+                containerColor = BlueLight,
+                contentColor   = Color.White,
+                shape          = CircleShape
+            ) {
+                Icon(Icons.Default.Help, contentDescription = "Ayuda")
+            }
+        }
+    ) { padding ->
 
         if (state.isLoading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = BlueLight) }
@@ -92,8 +110,6 @@ fun HomeGuarderiaScreen(
         }
 
         Column(modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
-
-            // ── Portada + Foto ────────────────────────────────────────
             Box(modifier = Modifier.fillMaxWidth().height(260.dp)) {
                 Box(modifier = Modifier.fillMaxWidth().height(190.dp).background(Brush.linearGradient(listOf(NavyBlue, BlueLight)))) {
                     IconButton(onClick = onLogout, modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).background(Color.White.copy(alpha = 0.2f), CircleShape)) {
@@ -103,39 +119,57 @@ fun HomeGuarderiaScreen(
                         Text(g.nombreGuarderia, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2)
                         Spacer(Modifier.height(4.dp))
                         when (g.estado) {
-                            "verificada" -> BadgeEstado(Icons.Default.Verified,      Verified,          "Verificada")
-                            "rechazada"  -> BadgeEstado(Icons.Default.Cancel,        RedError,          "Rechazada")
+                            "verificada" -> BadgeEstado(Icons.Default.Verified,       Verified,          "Verificada")
+                            "rechazada"  -> BadgeEstado(Icons.Default.Cancel,         RedError,          "Rechazada")
                             else         -> BadgeEstado(Icons.Default.HourglassEmpty, Color(0xFFFFA000), "Pendiente de verificación")
                         }
                     }
                 }
                 Box(modifier = Modifier.align(Alignment.BottomStart).padding(start = 20.dp)) {
-                    Box(modifier = Modifier.size(110.dp).clip(CircleShape).border(4.dp, CardWhite, CircleShape).background(BlueLight).clickable { photoLauncher.launch("image/*") }, contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier.size(110.dp).clip(CircleShape).border(4.dp, CardWhite, CircleShape)
+                            .background(BlueLight).clickable { photoLauncher.launch("image/*") },
+                        contentAlignment = Alignment.Center
+                    ) {
                         when {
                             state.isUploadingPhoto -> CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp)
                             !g.fotoUrl.isNullOrBlank() -> AsyncImage(model = g.fotoUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                             else -> Text(g.nombreGuarderia.firstOrNull()?.uppercaseChar()?.toString() ?: "G", fontSize = 40.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
-                    Box(modifier = Modifier.align(Alignment.BottomEnd).size(30.dp).background(BlueLight, CircleShape).border(2.dp, CardWhite, CircleShape), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier.align(Alignment.BottomEnd).size(30.dp)
+                            .background(BlueLight, CircleShape).border(2.dp, CardWhite, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Icon(Icons.Default.CameraAlt, null, tint = Color.White, modifier = Modifier.size(16.dp))
                     }
                 }
             }
 
             Spacer(Modifier.height(8.dp))
-
-            // ── Botón editar ──────────────────────────────────────────
             Card(colors = CardDefaults.cardColors(containerColor = CardWhite), elevation = CardDefaults.cardElevation(2.dp), shape = RoundedCornerShape(0.dp), modifier = Modifier.fillMaxWidth()) {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.End) {
                     if (!state.isEditMode) {
-                        OutlinedButton(onClick = viewModel::toggleEditMode, shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = BlueLight), border = androidx.compose.foundation.BorderStroke(1.dp, BlueLight)) {
-                            Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Editar perfil", fontWeight = FontWeight.SemiBold)
+                        OutlinedButton(
+                            onClick = viewModel::toggleEditMode,
+                            shape   = RoundedCornerShape(8.dp),
+                            colors  = ButtonDefaults.outlinedButtonColors(contentColor = BlueLight),
+                            border  = androidx.compose.foundation.BorderStroke(1.dp, BlueLight)
+                        ) {
+                            Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Editar perfil", fontWeight = FontWeight.SemiBold)
                         }
                     } else {
                         TextButton(onClick = viewModel::toggleEditMode) { Text("Cancelar", color = TextGray) }
                         Spacer(Modifier.width(8.dp))
-                        Button(onClick = viewModel::guardarCambios, enabled = !state.isSaving, shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = BlueLight)) {
+                        Button(
+                            onClick  = viewModel::guardarCambios,
+                            enabled  = !state.isSaving,
+                            shape    = RoundedCornerShape(8.dp),
+                            colors   = ButtonDefaults.buttonColors(containerColor = BlueLight)
+                        ) {
                             if (state.isSaving) CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
                             else { Icon(Icons.Default.Save, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Guardar") }
                         }
@@ -144,8 +178,6 @@ fun HomeGuarderiaScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-
-            // ── Carrusel de fotos ─────────────────────────────────────
             Card(colors = CardDefaults.cardColors(containerColor = CardWhite), elevation = CardDefaults.cardElevation(2.dp), shape = RoundedCornerShape(0.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -156,7 +188,6 @@ fun HomeGuarderiaScreen(
                         Text("(máx. 3)", fontSize = 12.sp, color = TextGray)
                     }
                     Spacer(Modifier.height(14.dp))
-
                     if (state.isUploadingCarrusel) {
                         Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(color = BlueLight)
@@ -165,7 +196,6 @@ fun HomeGuarderiaScreen(
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             val fotos = g.fotos.take(3).toMutableList()
                             while (fotos.size < 3) fotos.add("")
-
                             fotos.forEachIndexed { index, fotoUrl ->
                                 Box(
                                     modifier = Modifier.weight(1f).height(100.dp)
@@ -180,8 +210,12 @@ fun HomeGuarderiaScreen(
                                 ) {
                                     if (fotoUrl.isNotBlank()) {
                                         AsyncImage(model = fotoUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)))
-                                        // Botón eliminar
-                                        Box(modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(22.dp).background(Color.Black.copy(alpha = 0.5f), CircleShape).clickable { viewModel.eliminarFotoCarrusel(index) }, contentAlignment = Alignment.Center) {
+                                        Box(
+                                            modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(22.dp)
+                                                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                                .clickable { viewModel.eliminarFotoCarrusel(index) },
+                                            contentAlignment = Alignment.Center
+                                        ) {
                                             Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(12.dp))
                                         }
                                     } else {
@@ -198,8 +232,6 @@ fun HomeGuarderiaScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-
-            // ── Información ───────────────────────────────────────────
             Card(colors = CardDefaults.cardColors(containerColor = CardWhite), elevation = CardDefaults.cardElevation(2.dp), shape = RoundedCornerShape(0.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Información", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextDark)
@@ -227,8 +259,6 @@ fun HomeGuarderiaScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-
-            // ── Descripción ───────────────────────────────────────────
             Card(colors = CardDefaults.cardColors(containerColor = CardWhite), elevation = CardDefaults.cardElevation(2.dp), shape = RoundedCornerShape(0.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -238,7 +268,12 @@ fun HomeGuarderiaScreen(
                     }
                     Spacer(Modifier.height(12.dp))
                     if (!state.isEditMode) {
-                        Text(g.descripcion.ifBlank { "Sin descripción aún. Edita tu perfil para agregar una." }, fontSize = 14.sp, color = if (g.descripcion.isBlank()) TextGray else TextDark, lineHeight = 20.sp)
+                        Text(
+                            g.descripcion.ifBlank { "Sin descripción aún. Edita tu perfil para agregar una." },
+                            fontSize   = 14.sp,
+                            color      = if (g.descripcion.isBlank()) TextGray else TextDark,
+                            lineHeight = 20.sp
+                        )
                     } else {
                         OutlinedTextField(
                             value         = state.descripcionEdit,
@@ -256,8 +291,6 @@ fun HomeGuarderiaScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-
-            // ── Precio ────────────────────────────────────────────────
             Card(colors = CardDefaults.cardColors(containerColor = CardWhite), elevation = CardDefaults.cardElevation(2.dp), shape = RoundedCornerShape(0.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -280,8 +313,6 @@ fun HomeGuarderiaScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-
-            // ── Horarios ──────────────────────────────────────────────
             Card(colors = CardDefaults.cardColors(containerColor = CardWhite), elevation = CardDefaults.cardElevation(2.dp), shape = RoundedCornerShape(0.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -292,30 +323,28 @@ fun HomeGuarderiaScreen(
                     Spacer(Modifier.height(12.dp))
                     if (!state.isEditMode) {
                         if (g.horaApertura.isNotBlank() || g.horaCierre.isNotBlank()) {
-                            InfoRow(Icons.Default.AccessTime, "Apertura",  g.horaApertura.ifBlank { "-" })
+                            InfoRow(Icons.Default.AccessTime,    "Apertura", g.horaApertura.ifBlank { "-" })
                             HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = BgGray)
-                            InfoRow(Icons.Default.AccessTime, "Cierre",    g.horaCierre.ifBlank { "-" })
+                            InfoRow(Icons.Default.AccessTime,    "Cierre",   g.horaCierre.ifBlank { "-" })
                         }
                         if (g.diasAtencion.isNotBlank()) {
                             HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = BgGray)
-                            InfoRow(Icons.Default.CalendarMonth, "Días",   g.diasAtencion)
+                            InfoRow(Icons.Default.CalendarMonth, "Días",     g.diasAtencion)
                         }
                         if (g.jornada.isNotBlank()) {
                             HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = BgGray)
-                            InfoRow(Icons.Default.WbSunny, "Jornada",      g.jornada)
+                            InfoRow(Icons.Default.WbSunny,       "Jornada",  g.jornada)
                         }
                         if (g.horaApertura.isBlank() && g.horaCierre.isBlank() && g.diasAtencion.isBlank() && g.jornada.isBlank()) {
                             Text("Horario no especificado. Edita tu perfil para agregar.", fontSize = 14.sp, color = TextGray)
                         }
                     } else {
-                        EditField("Hora apertura (ej: 7:00 AM)",  state.horaAperturaEdit,  viewModel::onHoraAperturaChange)
+                        EditField("Hora apertura (ej: 7:00 AM)",            state.horaAperturaEdit,  viewModel::onHoraAperturaChange)
                         Spacer(Modifier.height(10.dp))
-                        EditField("Hora cierre (ej: 6:00 PM)",    state.horaCierreEdit,    viewModel::onHoraCierreChange)
+                        EditField("Hora cierre (ej: 6:00 PM)",              state.horaCierreEdit,    viewModel::onHoraCierreChange)
                         Spacer(Modifier.height(10.dp))
-                        EditField("Días de atención (ej: Lunes a Viernes)", state.diasAtencionEdit, viewModel::onDiasAtencionChange)
+                        EditField("Días de atención (ej: Lunes a Viernes)", state.diasAtencionEdit,  viewModel::onDiasAtencionChange)
                         Spacer(Modifier.height(10.dp))
-
-                        // Selector de jornada
                         Text("Jornada", fontSize = 13.sp, color = TextGray)
                         Spacer(Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -333,8 +362,6 @@ fun HomeGuarderiaScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-
-            // ── Estado de la cuenta ───────────────────────────────────
             Card(colors = CardDefaults.cardColors(containerColor = CardWhite), elevation = CardDefaults.cardElevation(2.dp), shape = RoundedCornerShape(0.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Estado de la cuenta", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextDark)
@@ -361,17 +388,25 @@ fun HomeGuarderiaScreen(
                             Spacer(Modifier.height(4.dp))
                             Text("Sube un nuevo documento y tu cuenta volverá a revisión.", fontSize = 13.sp, color = TextGray, lineHeight = 18.sp)
                             Spacer(Modifier.height(12.dp))
-                            Button(onClick = { docLauncher.launch("*/*") }, enabled = !state.isUploadingDoc, shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = BlueLight), modifier = Modifier.fillMaxWidth().height(50.dp)) {
+                            Button(
+                                onClick  = { docLauncher.launch("*/*") },
+                                enabled  = !state.isUploadingDoc,
+                                shape    = RoundedCornerShape(12.dp),
+                                colors   = ButtonDefaults.buttonColors(containerColor = BlueLight),
+                                modifier = Modifier.fillMaxWidth().height(50.dp)
+                            ) {
                                 if (state.isUploadingDoc) CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
-                                else { Icon(Icons.Default.UploadFile, null, tint = Color.White); Spacer(Modifier.width(8.dp)); Text("Subir nuevo documento", fontWeight = FontWeight.SemiBold, color = Color.White) }
+                                else {
+                                    Icon(Icons.Default.UploadFile, null, tint = Color.White)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Subir nuevo documento", fontWeight = FontWeight.SemiBold, color = Color.White)
+                                }
                             }
                         }
                         else -> StatusBanner(Icons.Default.HourglassEmpty, Color(0xFFFFA000), Color(0xFFFFF8E1), "⏳ Verificación pendiente", "Estamos revisando tus documentos.")
                     }
                 }
             }
-
-            // ── Calificaciones ────────────────────────────────────────
             if (g.totalResenas > 0) {
                 Spacer(Modifier.height(8.dp))
                 Card(colors = CardDefaults.cardColors(containerColor = CardWhite), elevation = CardDefaults.cardElevation(2.dp), shape = RoundedCornerShape(0.dp), modifier = Modifier.fillMaxWidth()) {
@@ -419,7 +454,16 @@ private fun InfoRow(icon: ImageVector, label: String, value: String) {
 
 @Composable
 private fun EditField(label: String, value: String, onValueChange: (String) -> Unit, keyboardType: KeyboardType = KeyboardType.Text) {
-    OutlinedTextField(value = value, onValueChange = onValueChange, label = { Text(label) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = keyboardType), shape = RoundedCornerShape(10.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = BlueLight, focusedLabelColor = BlueLight), modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(
+        value         = value,
+        onValueChange = onValueChange,
+        label         = { Text(label) },
+        singleLine    = true,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        shape         = RoundedCornerShape(10.dp),
+        colors        = OutlinedTextFieldDefaults.colors(focusedBorderColor = BlueLight, focusedLabelColor = BlueLight),
+        modifier      = Modifier.fillMaxWidth()
+    )
 }
 
 @Composable

@@ -39,6 +39,8 @@ data class RegisterGuarderiaUiState(
     val password: String        = "",
     val confirmPassword: String = "",
     val documentoUri: String    = "",
+    val latitud: Double?        = null,
+    val longitud: Double?       = null,
     val isLoading: Boolean      = false,
     val error: String?          = null,
     val success: Boolean        = false
@@ -60,7 +62,6 @@ class AuthViewModel(
     private val repository: AuthRepository = AuthRepository()
 ) : ViewModel() {
 
-    // ── Login ─────────────────────────────────────────────────────────
     private val _loginState = MutableStateFlow(LoginUiState())
     val loginState: StateFlow<LoginUiState> = _loginState.asStateFlow()
 
@@ -91,8 +92,7 @@ class AuthViewModel(
     }
 
     fun resetLoginState() = _loginState.update { LoginUiState() }
-
-    // ── Registro Padre ────────────────────────────────────────────────
+    fun resetPadreState() = _registerPadreState.update { RegisterPadreUiState() }
     private val _registerPadreState = MutableStateFlow(RegisterPadreUiState())
     val registerPadreState: StateFlow<RegisterPadreUiState> = _registerPadreState.asStateFlow()
 
@@ -114,10 +114,10 @@ class AuthViewModel(
         }
     }
 
-    // ── Registro Guardería ────────────────────────────────────────────
     private val _registerGuarderiaState = MutableStateFlow(RegisterGuarderiaUiState())
     val registerGuarderiaState: StateFlow<RegisterGuarderiaUiState> = _registerGuarderiaState.asStateFlow()
 
+    fun resetGuarderiaState() = _registerGuarderiaState.update { RegisterGuarderiaUiState() }
     fun onGuarderiaNombreChange(v: String)          = _registerGuarderiaState.update { it.copy(nombreGuarderia = v, error = null) }
     fun onGuarderiaDireccionChange(v: String)       = _registerGuarderiaState.update { it.copy(direccion = v, error = null) }
     fun onGuarderiaNitChange(v: String)             = _registerGuarderiaState.update { it.copy(nit = v, error = null) }
@@ -126,8 +126,9 @@ class AuthViewModel(
     fun onGuarderiaPasswordChange(v: String)        = _registerGuarderiaState.update { it.copy(password = v, error = null) }
     fun onGuarderiaConfirmPasswordChange(v: String) = _registerGuarderiaState.update { it.copy(confirmPassword = v, error = null) }
     fun onGuarderiaDocumentoUriChange(v: String)    = _registerGuarderiaState.update { it.copy(documentoUri = v, error = null) }
+    fun onGuarderiaCoordenadaChange(lat: Double, lng: Double) =
+        _registerGuarderiaState.update { it.copy(latitud = lat, longitud = lng, error = null) }
 
-    // Ahora recibe Context para subir el documento
     fun registerGuarderia(context: Context) {
         val s = _registerGuarderiaState.value
         validateGuarderia(s)?.let { _registerGuarderiaState.update { st -> st.copy(error = it) }; return }
@@ -141,7 +142,9 @@ class AuthViewModel(
                 telefono        = s.telefono.trim(),
                 email           = s.email.trim(),
                 password        = s.password,
-                documentoUri    = s.documentoUri
+                documentoUri    = s.documentoUri,
+                latitud         = s.latitud,
+                longitud        = s.longitud
             ).fold(
                 onSuccess = { _registerGuarderiaState.update { it.copy(isLoading = false, success = true) } },
                 onFailure = { e -> _registerGuarderiaState.update { it.copy(isLoading = false, error = parseError(e.message)) } }
@@ -149,7 +152,6 @@ class AuthViewModel(
         }
     }
 
-    // ── Registro Admin ────────────────────────────────────────────────
     private val _registerAdminState = MutableStateFlow(RegisterAdminUiState())
     val registerAdminState: StateFlow<RegisterAdminUiState> = _registerAdminState.asStateFlow()
 
@@ -182,13 +184,11 @@ class AuthViewModel(
         }
     }
 
-    // ── Logout ────────────────────────────────────────────────────────
     suspend fun logout() {
         repository.logout()
         resetLoginState()
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────
     private fun validatePadre(s: RegisterPadreUiState): String? {
         if (s.nombre.isBlank())              return "El nombre es obligatorio"
         if (s.telefono.isBlank())            return "El teléfono es obligatorio"
@@ -202,6 +202,7 @@ class AuthViewModel(
     private fun validateGuarderia(s: RegisterGuarderiaUiState): String? {
         if (s.nombreGuarderia.isBlank())     return "El nombre es obligatorio"
         if (s.direccion.isBlank())           return "La dirección es obligatoria"
+        if (s.latitud == null)               return "Debes marcar la ubicación en el mapa"
         if (s.nit.isBlank())                 return "El NIT es obligatorio"
         if (s.telefono.isBlank())            return "El teléfono es obligatorio"
         if (s.email.isBlank())               return "El correo es obligatorio"

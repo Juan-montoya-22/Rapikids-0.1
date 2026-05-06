@@ -26,7 +26,6 @@ data class Guarderia(
     val totalResenas: Int                = 0,
     val latitud: Double?                 = null,
     val longitud: Double?                = null,
-    // ── Nuevos campos ─────────────────────────────────────────────────
     val descripcion: String              = "",
     @SerialName("precio_mensual")
     val precioMensual: Int               = 0,

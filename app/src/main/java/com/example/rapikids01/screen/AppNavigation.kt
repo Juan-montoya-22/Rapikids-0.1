@@ -35,7 +35,6 @@ fun AppNavigation() {
         startDestination = Routes.HOME
     ) {
 
-        // ── Selector de rol ────────────────────────────────────────────
         composable(Routes.HOME) {
             Home(
                 onPadreClick     = { navController.navigate(Routes.LOGIN_PADRE) },
@@ -44,7 +43,6 @@ fun AppNavigation() {
             )
         }
 
-        // ── Login Padre ────────────────────────────────────────────────
         composable(Routes.LOGIN_PADRE) {
             LoginScreen(
                 role          = UserRole.PADRE,
@@ -53,7 +51,6 @@ fun AppNavigation() {
             )
         }
 
-        // ── Login Guardería ────────────────────────────────────────────
         composable(Routes.LOGIN_GUARDERIA) {
             LoginScreen(
                 role          = UserRole.GUARDERIA,
@@ -62,7 +59,6 @@ fun AppNavigation() {
             )
         }
 
-        // ── Login Admin ────────────────────────────────────────────────
         composable(Routes.LOGIN_ADMIN) {
             LoginScreen(
                 role          = UserRole.ADMIN,
@@ -71,7 +67,6 @@ fun AppNavigation() {
             )
         }
 
-        // ── Registro Padre ─────────────────────────────────────────────
         composable(Routes.REGISTER_PADRE) {
             RegisterPadreScreen(
                 navController = navController,
@@ -79,15 +74,16 @@ fun AppNavigation() {
             )
         }
 
-        // ── Registro Guardería ─────────────────────────────────────────
         composable(Routes.REGISTER_GUARDERIA) {
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                authViewModel.resetGuarderiaState()
+            }
             RegisterGuarderiaScreen(
                 navController = navController,
                 authViewModel = authViewModel
             )
         }
 
-        // ── Registro Admin ─────────────────────────────────────────────
         composable(Routes.REGISTER_ADMIN) {
             RegisterAdminScreen(
                 navController = navController,
@@ -95,7 +91,6 @@ fun AppNavigation() {
             )
         }
 
-        // ── Home Padre ─────────────────────────────────────────────────
         composable(Routes.HOME_PADRE) {
             HomePadreScreen(
                 onLogout = {
@@ -110,7 +105,6 @@ fun AppNavigation() {
             )
         }
 
-        // ── Home Guardería ─────────────────────────────────────────────
         composable(Routes.HOME_GUARDERIA) {
             HomeGuarderiaScreen(
                 onLogout = {
@@ -125,7 +119,6 @@ fun AppNavigation() {
             )
         }
 
-        // ── Home Admin ─────────────────────────────────────────────────
         composable(Routes.HOME_ADMIN) {
             HomeAdminScreen(
                 onLogout = {

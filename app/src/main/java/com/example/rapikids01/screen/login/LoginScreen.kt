@@ -34,14 +34,12 @@ fun LoginScreen(
     val state by authViewModel.loginState.collectAsState()
     var passwordVisible by remember { mutableStateOf(false) }
 
-    // Color según el rol
     val primaryColor = when (role) {
         UserRole.ADMIN     -> Color(0xFFE53935)  // rojo admin
         UserRole.GUARDERIA -> Color(0xFF3949AB)  // azul guardería
         else               -> Color(0xFF6A4DBA)  // morado padre
     }
 
-    // Textos según el rol
     val titulo = when (role) {
         UserRole.ADMIN     -> "🔐 Panel Administrador"
         UserRole.GUARDERIA -> "🏫 Iniciar sesión"
@@ -54,7 +52,6 @@ fun LoginScreen(
         else               -> "Acceso Padres"
     }
 
-    // Navegar cuando el login es exitoso
     LaunchedEffect(state.loginSuccess) {
         state.loginSuccess?.let { userRole ->
             val destination = when (userRole) {
@@ -106,8 +103,6 @@ fun LoginScreen(
             )
 
             Spacer(Modifier.height(32.dp))
-
-            // ── Email ──────────────────────────────────────────────────
             OutlinedTextField(
                 value         = state.email,
                 onValueChange = authViewModel::onLoginEmailChange,
@@ -119,8 +114,6 @@ fun LoginScreen(
             )
 
             Spacer(Modifier.height(14.dp))
-
-            // ── Contraseña ─────────────────────────────────────────────
             OutlinedTextField(
                 value         = state.password,
                 onValueChange = authViewModel::onLoginPasswordChange,
@@ -142,8 +135,6 @@ fun LoginScreen(
             )
 
             Spacer(Modifier.height(8.dp))
-
-            // ── Error ──────────────────────────────────────────────────
             if (state.error != null) {
                 Card(
                     colors   = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
@@ -161,8 +152,6 @@ fun LoginScreen(
             }
 
             Spacer(Modifier.height(16.dp))
-
-            // ── Botón Login ────────────────────────────────────────────
             Button(
                 onClick  = { authViewModel.login(role) },
                 enabled  = !state.isLoading,
@@ -182,8 +171,6 @@ fun LoginScreen(
             }
 
             Spacer(Modifier.height(16.dp))
-
-            // ── Link a Registro ────────────────────────────────────────
             TextButton(
                 onClick = {
                     val registerRoute = when (role) {

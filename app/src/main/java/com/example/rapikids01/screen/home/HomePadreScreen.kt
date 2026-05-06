@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,6 +36,7 @@ import com.example.rapikids01.data.model.Guarderia
 import com.example.rapikids01.viewmodel.GuarderiaConDistancia
 import com.example.rapikids01.viewmodel.HomePadreViewModel
 import java.util.Locale
+import androidx.compose.material.icons.filled.Map
 
 private val Purple      = Color(0xFF6A4DBA)
 private val PurpleLight = Color(0xFF9C7EE8)
@@ -56,17 +56,21 @@ fun HomePadreScreen(
     val context = LocalContext.current
 
     var guarderiaSeleccionada by remember { mutableStateOf<Guarderia?>(null) }
+    var mostrarFaq by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val granted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                      permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
+                permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
         if (granted) viewModel.obtenerUbicacion(context)
         else viewModel.onPermisoDenegado()
     }
 
     LaunchedEffect(Unit) { viewModel.inicializarLocation(context) }
+    if (mostrarFaq) {
+        FaqDialog(esPadre = true, onDismiss = { mostrarFaq = false })
+    }
 
     if (guarderiaSeleccionada != null) {
         PerfilGuarderiaScreen(guarderia = guarderiaSeleccionada!!, onBack = { guarderiaSeleccionada = null })
@@ -136,6 +140,19 @@ fun HomePadreScreen(
                                 Spacer(Modifier.width(4.dp))
                                 Text("Ubicación activa", color = GreenSoft, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                             }
+                            IconButton(
+                                onClick  = { viewModel.toggleMapa() },
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .background(Color.White.copy(alpha = 0.2f), CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = if (state.mostrarMapa) Icons.Default.List else Icons.Default.Map,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                         if (state.permisoDenegado) Text("Permiso denegado", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
                     }
@@ -143,8 +160,27 @@ fun HomePadreScreen(
                 }
             }
         },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick        = { mostrarFaq = true },
+                containerColor = Purple,
+                contentColor   = Color.White,
+                shape          = CircleShape
+            ) {
+                Icon(Icons.Default.Help, contentDescription = "Ayuda")
+            }
+        },
         containerColor = BgSoft
     ) { padding ->
+        if (state.mostrarMapa) {
+            MapaGuarderiasScreen(
+                guarderias     = state.guarderiasFiltradas,
+                ubicacionPadre = state.ubicacionActual,
+                onVerPerfil    = { guarderiaSeleccionada = it },
+                onVolverLista  = { viewModel.toggleMapa() }
+            )
+            return@Scaffold
+        }
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when {
                 state.isLoading -> Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -183,23 +219,18 @@ fun HomePadreScreen(
         }
     }
 }
-
-// ── Card ──────────────────────────────────────────────────────────────────────
 @Composable
 fun GuarderiaCard(item: GuarderiaConDistancia, onVerPerfil: () -> Unit) {
     val guarderia = item.guarderia
     val context   = LocalContext.current
 
-    // Dialog de confirmacion de contacto
     var accionPendiente by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     if (accionPendiente != null) {
         AlertDialog(
             onDismissRequest = { accionPendiente = null },
             icon = { Icon(Icons.Default.Info, null, tint = Purple, modifier = Modifier.size(32.dp)) },
-            title = {
-                Text("Contacto directo", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = Color(0xFF1A1A2E))
-            },
+            title = { Text("Contacto directo", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = Color(0xFF1A1A2E)) },
             text = {
                 Text(
                     "Al oprimir Aceptar, usted establecerá contacto directo con la guardería. La interacción no será responsabilidad de la aplicación Rapikids.",
@@ -227,7 +258,6 @@ fun GuarderiaCard(item: GuarderiaConDistancia, onVerPerfil: () -> Unit) {
         modifier  = Modifier.fillMaxWidth()
     ) {
         Column {
-            // ── Imagen ─────────────────────────────────────────────────
             Box(modifier = Modifier.fillMaxWidth().height(140.dp)) {
                 if (guarderia.fotoUrl.isNotBlank()) {
                     AsyncImage(model = guarderia.fotoUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -241,7 +271,6 @@ fun GuarderiaCard(item: GuarderiaConDistancia, onVerPerfil: () -> Unit) {
                         Text("✓ Verificada", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
                     }
                 }
-                // Badge distancia
                 item.distanciaKm?.let { dist ->
                     Surface(color = Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(topEnd = 12.dp), modifier = Modifier.align(Alignment.BottomStart)) {
                         Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -254,47 +283,36 @@ fun GuarderiaCard(item: GuarderiaConDistancia, onVerPerfil: () -> Unit) {
                         }
                     }
                 }
-
-                // ── Botones WhatsApp y Llamar en el banner ─────────────
                 if (guarderia.telefono.isNotBlank()) {
                     Row(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(8.dp),
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Botón Llamar
                         Surface(
                             color    = Color.Black.copy(alpha = 0.6f),
                             shape    = CircleShape,
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clickable {
-                                    accionPendiente = {
-                                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${guarderia.telefono}"))
-                                        context.startActivity(intent)
-                                    }
+                            modifier = Modifier.size(40.dp).clickable {
+                                accionPendiente = {
+                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${guarderia.telefono}"))
+                                    context.startActivity(intent)
                                 }
+                            }
                         ) {
                             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                                 Icon(Icons.Default.Phone, null, tint = Color.White, modifier = Modifier.size(20.dp))
                             }
                         }
-
-                        // Botón WhatsApp
                         Surface(
                             color    = Color(0xFF25D366),
                             shape    = CircleShape,
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clickable {
-                                    accionPendiente = {
-                                        val numero = guarderia.telefono.replace(Regex("[^0-9]"), "")
-                                        val waUrl  = "https://wa.me/57$numero"
-                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(waUrl))
-                                        context.startActivity(intent)
-                                    }
+                            modifier = Modifier.size(40.dp).clickable {
+                                accionPendiente = {
+                                    val numero = guarderia.telefono.replace(Regex("[^0-9]"), "")
+                                    val waUrl  = "https://wa.me/57$numero"
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(waUrl))
+                                    context.startActivity(intent)
                                 }
+                            }
                         ) {
                             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                                 Icon(Icons.Default.Chat, null, tint = Color.White, modifier = Modifier.size(20.dp))
@@ -305,7 +323,6 @@ fun GuarderiaCard(item: GuarderiaConDistancia, onVerPerfil: () -> Unit) {
             }
 
             Column(modifier = Modifier.padding(16.dp)) {
-                // ── Nombre + calificación ──────────────────────────────
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                     Text(guarderia.nombreGuarderia, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1A2E), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     Spacer(Modifier.width(8.dp))
@@ -318,18 +335,11 @@ fun GuarderiaCard(item: GuarderiaConDistancia, onVerPerfil: () -> Unit) {
                         )
                     }
                 }
-
                 Spacer(Modifier.height(10.dp))
-
-                // ── Descripción ────────────────────────────────────────
                 if (guarderia.descripcion.isNotBlank()) {
                     Text(guarderia.descripcion, fontSize = 13.sp, color = Color(0xFF555555), maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 18.sp)
                     Spacer(Modifier.height(10.dp))
                 }
-
-
-
-                // ── Correo clicable ────────────────────────────────────
                 if (guarderia.email.isNotBlank()) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -350,8 +360,6 @@ fun GuarderiaCard(item: GuarderiaConDistancia, onVerPerfil: () -> Unit) {
                     }
                     Spacer(Modifier.height(10.dp))
                 }
-
-                // ── Precio si existe ───────────────────────────────────
                 if (guarderia.precioMensual > 0) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.AttachMoney, null, tint = Color(0xFF00897B), modifier = Modifier.size(16.dp))
@@ -361,13 +369,10 @@ fun GuarderiaCard(item: GuarderiaConDistancia, onVerPerfil: () -> Unit) {
                     }
                     Spacer(Modifier.height(10.dp))
                 }
-
                 if (guarderia.totalResenas > 0) {
                     Text("${guarderia.totalResenas} reseña(s)", fontSize = 12.sp, color = Color.LightGray)
                     Spacer(Modifier.height(8.dp))
                 }
-
-                // ── Botón ver perfil ───────────────────────────────────
                 Button(
                     onClick  = onVerPerfil,
                     shape    = RoundedCornerShape(12.dp),

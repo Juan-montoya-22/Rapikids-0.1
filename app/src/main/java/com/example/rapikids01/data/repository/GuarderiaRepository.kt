@@ -6,8 +6,6 @@ import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Order
 
 class GuarderiaRepository {
-
-    // ── Guarderías verificadas para padres ────────────────────────────
     suspend fun obtenerGuarderias(): Result<List<Guarderia>> {
         return try {
             val lista = client.postgrest["guarderias"]
@@ -21,8 +19,6 @@ class GuarderiaRepository {
             Result.failure(e)
         }
     }
-
-    // ── Filtro local por nombre o dirección ───────────────────────────
     fun filtrarGuarderias(lista: List<Guarderia>, query: String): List<Guarderia> {
         if (query.isBlank()) return lista
         val q = query.trim().lowercase()

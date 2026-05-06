@@ -14,7 +14,6 @@ import kotlinx.coroutines.launch
 
 data class HomeGuarderiaUiState(
     val guarderia: Guarderia?        = null,
-    // Campos editables
     val nombreEdit: String           = "",
     val direccionEdit: String        = "",
     val telefonoEdit: String         = "",
@@ -24,7 +23,6 @@ data class HomeGuarderiaUiState(
     val horaCierreEdit: String       = "",
     val diasAtencionEdit: String     = "",
     val jornadaEdit: String          = "",
-    // Estados
     val isLoading: Boolean           = false,
     val isSaving: Boolean            = false,
     val isUploadingPhoto: Boolean    = false,
@@ -89,7 +87,7 @@ class HomeGuarderiaViewModel(
         )
     }
 
-    // Setters campos editables
+
     fun onNombreChange(v: String)        = _uiState.update { it.copy(nombreEdit = v) }
     fun onDireccionChange(v: String)     = _uiState.update { it.copy(direccionEdit = v) }
     fun onTelefonoChange(v: String)      = _uiState.update { it.copy(telefonoEdit = v) }
@@ -160,7 +158,6 @@ class HomeGuarderiaViewModel(
         }
     }
 
-    // ── Carrusel ──────────────────────────────────────────────────────
     fun subirFotoCarrusel(context: Context, uri: Uri, indice: Int) {
         viewModelScope.launch {
             _uiState.update { it.copy(isUploadingCarrusel = true, error = null) }

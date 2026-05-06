@@ -19,7 +19,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             Rapikids01Theme {
                 Scaffold(modifier = Modifier.fillMaxSize()) {
-                    AppNavigation()   // ✅ AQUÍ SE ARREGLA
+                    AppNavigation()
                 }
             }
         }

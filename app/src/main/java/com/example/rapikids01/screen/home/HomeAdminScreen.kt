@@ -29,7 +29,6 @@ import com.example.rapikids01.data.model.Guarderia
 import com.example.rapikids01.viewmodel.AdminTab
 import com.example.rapikids01.viewmodel.AdminViewModel
 
-// ── Colores ───────────────────────────────────────────────────────────────────
 private val DarkBg    = Color(0xFF1A1A2E)
 private val DarkCard  = Color(0xFF16213E)
 private val RedAccent = Color(0xFFE53935)
@@ -43,25 +42,100 @@ fun HomeAdminScreen(
     onLogout: () -> Unit = {},
     viewModel: AdminViewModel = viewModel()
 ) {
-    val state   = viewModel.uiState.collectAsState().value
-    val context = LocalContext.current
+    val state             = viewModel.uiState.collectAsState().value
+    val context           = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Guardería seleccionada para detalle
-    var guarderiaDetalle by remember { mutableStateOf<Guarderia?>(null) }
-    // Dialog de rechazo
-    var showRechazoDialog by remember { mutableStateOf(false) }
+    var guarderiaDetalle   by remember { mutableStateOf<Guarderia?>(null) }
+    var showRechazoDialog  by remember { mutableStateOf(false) }
     var guarderiaArechazar by remember { mutableStateOf<Guarderia?>(null) }
-    var motivoRechazo by remember { mutableStateOf("") }
+    var motivoRechazo      by remember { mutableStateOf("") }
 
-    // Recargar cada vez que el admin entra a la pantalla
     LaunchedEffect(Unit) { viewModel.cargarDatos() }
-
     LaunchedEffect(state.successMsg) {
         state.successMsg?.let { snackbarHostState.showSnackbar(it); viewModel.clearMessages() }
     }
     LaunchedEffect(state.error) {
         state.error?.let { snackbarHostState.showSnackbar("⚠️ $it"); viewModel.clearMessages() }
+    }
+    if (guarderiaDetalle != null) {
+        GuarderiaDetalleAdmin(
+            guarderia      = guarderiaDetalle!!,
+            onBack         = { guarderiaDetalle = null },
+            onAprobar      = {
+                viewModel.aprobarGuarderia(guarderiaDetalle!!.uid)
+                guarderiaDetalle = null
+            },
+            onRechazar     = {
+                guarderiaArechazar = guarderiaDetalle
+                showRechazoDialog  = true
+            },
+            onVerDocumento = { url ->
+                if (url.isNotBlank()) {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    context.startActivity(intent)
+                }
+            }
+        )
+
+        if (showRechazoDialog) {
+            Dialog(onDismissRequest = { showRechazoDialog = false; motivoRechazo = "" }) {
+                Card(
+                    shape  = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = DarkCard)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text("Motivo de rechazo", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 17.sp)
+                        Spacer(Modifier.height(12.dp))
+                        Text(guarderiaArechazar?.nombreGuarderia ?: "", color = RedLight, fontSize = 13.sp)
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value         = motivoRechazo,
+                            onValueChange = { motivoRechazo = it },
+                            label         = { Text("Escribe el motivo", color = Color.Gray) },
+                            minLines      = 3,
+                            maxLines      = 5,
+                            shape         = RoundedCornerShape(12.dp),
+                            colors        = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor      = RedAccent,
+                                unfocusedBorderColor    = Color.White.copy(alpha = 0.2f),
+                                focusedTextColor        = Color.White,
+                                unfocusedTextColor      = Color.White,
+                                focusedContainerColor   = DarkBg,
+                                unfocusedContainerColor = DarkBg,
+                                cursorColor             = RedAccent
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.End,
+                            modifier              = Modifier.fillMaxWidth()
+                        ) {
+                            TextButton(onClick = { showRechazoDialog = false; motivoRechazo = "" }) {
+                                Text("Cancelar", color = Color.Gray)
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Button(
+                                onClick = {
+                                    guarderiaArechazar?.let {
+                                        viewModel.rechazarGuarderia(it.uid, motivoRechazo)
+                                    }
+                                    showRechazoDialog = false
+                                    guarderiaDetalle  = null
+                                    motivoRechazo     = ""
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = RedAccent),
+                                shape  = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("Rechazar", color = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return
     }
 
     Scaffold(
@@ -84,7 +158,6 @@ fun HomeAdminScreen(
                         Text("Administrador Rapikids", fontSize = 12.sp, color = RedLight)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        // Botón refresh
                         IconButton(
                             onClick  = { viewModel.cargarDatos() },
                             modifier = Modifier.background(Color.White.copy(alpha = 0.1f), CircleShape)
@@ -103,68 +176,25 @@ fun HomeAdminScreen(
         }
     ) { padding ->
 
-        // ── Detalle de guardería ───────────────────────────────────────
-        if (guarderiaDetalle != null) {
-            GuarderiaDetalleAdmin(
-                guarderia = guarderiaDetalle!!,
-                onBack    = { guarderiaDetalle = null },
-                onAprobar = {
-                    viewModel.aprobarGuarderia(guarderiaDetalle!!.uid)
-                    guarderiaDetalle = null
-                },
-                onRechazar = {
-                    guarderiaArechazar = guarderiaDetalle
-                    showRechazoDialog  = true
-                },
-                onVerDocumento = { url ->
-                    if (url.isNotBlank()) {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                        context.startActivity(intent)
-                    }
-                }
-            )
-            return@Scaffold
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            // ── Stats rápidas ──────────────────────────────────────────
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             Row(
                 modifier              = Modifier.fillMaxWidth().padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    label    = "Pendientes",
-                    count    = state.pendientes.size,
-                    color    = AmberWarn
-                )
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    label    = "Total",
-                    count    = state.todas.size,
-                    color    = RedAccent
-                )
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    label    = "Verificadas",
-                    count    = state.todas.count { it.verificada },
-                    color    = GreenOk
-                )
+                StatCard(modifier = Modifier.weight(1f), label = "Pendientes",  count = state.pendientes.size,              color = AmberWarn)
+                StatCard(modifier = Modifier.weight(1f), label = "Total",       count = state.todas.size,                   color = RedAccent)
+                StatCard(modifier = Modifier.weight(1f), label = "Verificadas", count = state.todas.count { it.verificada }, color = GreenOk)
             }
-
-            // ── Tabs ───────────────────────────────────────────────────
             TabRow(
                 selectedTabIndex = if (state.tabSeleccionada == AdminTab.PENDIENTES) 0 else 1,
                 containerColor   = DarkCard,
                 contentColor     = RedAccent,
                 indicator        = { tabPositions ->
                     TabRowDefaults.SecondaryIndicator(
-                        modifier = Modifier.tabIndicatorOffset(tabPositions[if (state.tabSeleccionada == AdminTab.PENDIENTES) 0 else 1]),
-                        color    = RedAccent
+                        modifier = Modifier.tabIndicatorOffset(
+                            tabPositions[if (state.tabSeleccionada == AdminTab.PENDIENTES) 0 else 1]
+                        ),
+                        color = RedAccent
                     )
                 }
             ) {
@@ -189,8 +219,6 @@ fun HomeAdminScreen(
                     text     = { Text("Todas", color = Color.White) }
                 )
             }
-
-            // ── Lista ──────────────────────────────────────────────────
             if (state.isLoading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = RedAccent)
@@ -214,12 +242,12 @@ fun HomeAdminScreen(
                     }
                 } else {
                     LazyColumn(
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding      = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(lista, key = { it.uid }) { guarderia ->
                             GuarderiaAdminCard(
-                                guarderia  = guarderia,
+                                guarderia    = guarderia,
                                 onVerDetalle = { guarderiaDetalle = guarderia }
                             )
                         }
@@ -228,68 +256,7 @@ fun HomeAdminScreen(
             }
         }
     }
-
-    // ── Dialog de rechazo ─────────────────────────────────────────────
-    if (showRechazoDialog) {
-        Dialog(onDismissRequest = { showRechazoDialog = false; motivoRechazo = "" }) {
-            Card(
-                shape  = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkCard)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text("Motivo de rechazo", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 17.sp)
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text  = guarderiaArechazar?.nombreGuarderia ?: "",
-                        color = RedLight,
-                        fontSize = 13.sp
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value         = motivoRechazo,
-                        onValueChange = { motivoRechazo = it },
-                        label         = { Text("Escribe el motivo", color = Color.Gray) },
-                        minLines      = 3,
-                        maxLines      = 5,
-                        shape         = RoundedCornerShape(12.dp),
-                        colors        = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor      = RedAccent,
-                            unfocusedBorderColor    = Color.White.copy(alpha = 0.2f),
-                            focusedTextColor        = Color.White,
-                            unfocusedTextColor      = Color.White,
-                            focusedContainerColor   = DarkBg,
-                            unfocusedContainerColor = DarkBg,
-                            cursorColor             = RedAccent
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                        TextButton(onClick = { showRechazoDialog = false; motivoRechazo = "" }) {
-                            Text("Cancelar", color = Color.Gray)
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Button(
-                            onClick = {
-                                guarderiaArechazar?.let { viewModel.rechazarGuarderia(it.uid, motivoRechazo) }
-                                showRechazoDialog  = false
-                                guarderiaDetalle   = null
-                                motivoRechazo      = ""
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = RedAccent),
-                            shape  = RoundedCornerShape(10.dp)
-                        ) {
-                            Text("Rechazar", color = Color.White)
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
-
-// ── Card de guardería en lista admin ─────────────────────────────────────────
-
 @Composable
 private fun GuarderiaAdminCard(
     guarderia: Guarderia,
@@ -302,8 +269,8 @@ private fun GuarderiaAdminCard(
     }
 
     Card(
-        shape  = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF16213E)),
+        shape     = RoundedCornerShape(16.dp),
+        colors    = CardDefaults.cardColors(containerColor = Color(0xFF16213E)),
         elevation = CardDefaults.cardElevation(4.dp),
         modifier  = Modifier.fillMaxWidth()
     ) {
@@ -320,11 +287,9 @@ private fun GuarderiaAdminCard(
                     Spacer(Modifier.height(4.dp))
                     Text("NIT: ${guarderia.nit}", color = Color.Gray, fontSize = 12.sp)
                 }
-
-                // Badge estado
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
+                    modifier          = Modifier
                         .background(estadoColor.copy(alpha = 0.15f), RoundedCornerShape(20.dp))
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
@@ -333,9 +298,7 @@ private fun GuarderiaAdminCard(
                     Text(estadoTexto, color = estadoColor, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
-
             Spacer(Modifier.height(12.dp))
-
             Button(
                 onClick  = onVerDetalle,
                 shape    = RoundedCornerShape(10.dp),
@@ -349,9 +312,6 @@ private fun GuarderiaAdminCard(
         }
     }
 }
-
-// ── Pantalla de detalle ───────────────────────────────────────────────────────
-
 @Composable
 private fun GuarderiaDetalleAdmin(
     guarderia: Guarderia,
@@ -365,7 +325,6 @@ private fun GuarderiaDetalleAdmin(
             .fillMaxSize()
             .background(DarkBg)
     ) {
-        // Top bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -374,7 +333,7 @@ private fun GuarderiaDetalleAdmin(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(8.dp)
+                modifier          = Modifier.padding(8.dp)
             ) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.Default.ArrowBack, null, tint = Color.White)
@@ -384,11 +343,10 @@ private fun GuarderiaDetalleAdmin(
         }
 
         LazyColumn(
-            contentPadding = PaddingValues(16.dp),
+            contentPadding      = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                // Info card
                 Card(
                     shape  = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = DarkCard)
@@ -396,24 +354,21 @@ private fun GuarderiaDetalleAdmin(
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(guarderia.nombreGuarderia, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 20.sp)
                         Spacer(Modifier.height(16.dp))
-
-                        DetalleRow("📍 Dirección",  guarderia.direccion)
-                        DetalleRow("📞 Teléfono",   guarderia.telefono)
-                        DetalleRow("✉️ Correo",     guarderia.email)
-                        DetalleRow("🏢 NIT",        guarderia.nit)
-                        DetalleRow("📅 Registro",   guarderia.createdAt.take(10))
+                        DetalleRow("📍 Dirección", guarderia.direccion)
+                        DetalleRow("📞 Teléfono",  guarderia.telefono)
+                        DetalleRow("✉️ Correo",    guarderia.email)
+                        DetalleRow("🏢 NIT",       guarderia.nit)
+                        DetalleRow("📅 Registro",  guarderia.createdAt.take(10))
                     }
                 }
             }
 
             item {
-                // Estado actual
                 val (estadoColor, estadoTexto) = when (guarderia.estado) {
                     "verificada" -> Pair(GreenOk,   "✅ Verificada")
                     "rechazada"  -> Pair(RedAccent, "❌ Rechazada")
                     else         -> Pair(AmberWarn, "⏳ Pendiente de revisión")
                 }
-
                 Card(
                     shape  = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = estadoColor.copy(alpha = 0.1f))
@@ -422,7 +377,6 @@ private fun GuarderiaDetalleAdmin(
                         Text("Estado actual", color = Color.Gray, fontSize = 12.sp)
                         Spacer(Modifier.height(4.dp))
                         Text(estadoTexto, color = estadoColor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-
                         if (guarderia.estado == "rechazada" && guarderia.mensajeRechazo.isNotBlank()) {
                             Spacer(Modifier.height(8.dp))
                             Text("Motivo: ${guarderia.mensajeRechazo}", color = RedLight, fontSize = 13.sp)
@@ -432,7 +386,6 @@ private fun GuarderiaDetalleAdmin(
             }
 
             item {
-                // Documento
                 Card(
                     shape  = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = DarkCard)
@@ -440,7 +393,6 @@ private fun GuarderiaDetalleAdmin(
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text("Documento de verificación", color = Color.Gray, fontSize = 12.sp)
                         Spacer(Modifier.height(10.dp))
-
                         if (guarderia.documentoUrl.isNotBlank()) {
                             Button(
                                 onClick  = { onVerDocumento(guarderia.documentoUrl) },
@@ -459,7 +411,6 @@ private fun GuarderiaDetalleAdmin(
                 }
             }
 
-            // Botones de acción (solo si está pendiente)
             if (guarderia.estado == "pendiente") {
                 item {
                     Row(
@@ -476,7 +427,6 @@ private fun GuarderiaDetalleAdmin(
                             Spacer(Modifier.width(6.dp))
                             Text("Rechazar", color = Color.White, fontWeight = FontWeight.Bold)
                         }
-
                         Button(
                             onClick  = onAprobar,
                             shape    = RoundedCornerShape(14.dp),

@@ -32,9 +32,17 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavController
 import com.example.rapikids01.navigation.Routes
 import com.example.rapikids01.viewmodel.AuthViewModel
+import org.maplibre.android.MapLibre
+import org.maplibre.android.annotations.MarkerOptions
+import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.geometry.LatLng as MLatLng
+import org.maplibre.android.maps.MapView
 
 private const val TERMS_URL = "https://juan-montoya-22.github.io/Rapikids-0.1/"
 private val Purple     = Color(0xFF6A4DBA)
@@ -53,6 +61,7 @@ fun RegisterGuarderiaScreen(
     var showConfirmPassword by remember { mutableStateOf(false) }
     var aceptaTerminos      by remember { mutableStateOf(false) }
     var terminosError       by remember { mutableStateOf(false) }
+    var mostrarMapaDialog   by remember { mutableStateOf(false) }
 
     val docLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
@@ -60,10 +69,157 @@ fun RegisterGuarderiaScreen(
         uri?.let { authViewModel.onGuarderiaDocumentoUriChange(it.toString()) }
     }
 
-    LaunchedEffect(state.success) {
-        if (state.success) {
-            navController.navigate(Routes.LOGIN_GUARDERIA) {
-                popUpTo(Routes.REGISTER_GUARDERIA) { inclusive = true }
+    if (state.success) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Registro de Guardería", fontWeight = FontWeight.Bold) },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor    = Purple,
+                        titleContentColor = Color.White
+                    )
+                )
+            }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text("📧", fontSize = 64.sp)
+                Spacer(Modifier.height(24.dp))
+                Text(
+                    "¡Revisa tu correo!",
+                    fontSize   = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color      = Purple
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text      = "Te enviamos un enlace de verificación a ${state.email}. " +
+                            "Una vez que confirmes tu correo, tu solicitud entrará en revisión " +
+                            "por el equipo de RapiKids.",
+                    fontSize  = 15.sp,
+                    color     = Color.Gray,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 22.sp
+                )
+                Spacer(Modifier.height(32.dp))
+                Button(
+                    onClick = {
+                        authViewModel.resetGuarderiaState()
+                        navController.navigate(Routes.LOGIN_GUARDERIA) {
+                            popUpTo(Routes.REGISTER_GUARDERIA) { inclusive = true }
+                        }
+                    },
+                    shape    = RoundedCornerShape(12.dp),
+                    colors   = ButtonDefaults.buttonColors(containerColor = Purple),
+                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                ) {
+                    Text("Ir al inicio de sesión", fontWeight = FontWeight.SemiBold, color = Color.White)
+                }
+            }
+        }
+        return
+    }
+
+    if (mostrarMapaDialog) {
+        Dialog(
+            onDismissRequest = { mostrarMapaDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Card(
+                shape    = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth(0.95f)
+                    .fillMaxHeight(0.85f)
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Purple)
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment     = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Marca tu ubicación", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        IconButton(onClick = { mostrarMapaDialog = false }) {
+                            Icon(Icons.Default.Close, null, tint = Color.White)
+                        }
+                    }
+                    Text(
+                        "Toca el punto exacto en el mapa donde está tu guardería",
+                        fontSize = 12.sp, color = Color.Gray,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        var marcadorActual by remember {
+                            mutableStateOf<org.maplibre.android.annotations.Marker?>(null)
+                        }
+                        AndroidView(
+                            factory = { ctx ->
+                                MapLibre.getInstance(ctx)
+                                MapView(ctx).apply {
+                                    getMapAsync { map ->
+                                        map.setStyle(
+                                            org.maplibre.android.maps.Style.Builder()
+                                                .fromUri("https://tiles.openfreemap.org/styles/liberty")
+                                        ) {
+                                            val lat = state.latitud ?: 4.7110
+                                            val lng = state.longitud ?: -74.0721
+                                            map.cameraPosition = CameraPosition.Builder()
+                                                .target(MLatLng(lat, lng))
+                                                .zoom(14.0)
+                                                .build()
+                                            if (state.latitud != null) {
+                                                marcadorActual = map.addMarker(
+                                                    MarkerOptions()
+                                                        .position(MLatLng(lat, lng))
+                                                        .title("Ubicación de la guardería")
+                                                )
+                                            }
+                                            map.addOnMapClickListener { latLng ->
+                                                marcadorActual?.let { map.removeMarker(it) }
+                                                marcadorActual = map.addMarker(
+                                                    MarkerOptions()
+                                                        .position(latLng)
+                                                        .title("Ubicación de la guardería")
+                                                )
+                                                authViewModel.onGuarderiaCoordenadaChange(
+                                                    latLng.latitude, latLng.longitude
+                                                )
+                                                true
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    Button(
+                        onClick  = { mostrarMapaDialog = false },
+                        enabled  = state.latitud != null,
+                        shape    = RoundedCornerShape(0.dp),
+                        colors   = ButtonDefaults.buttonColors(
+                            containerColor         = if (state.latitud != null) Purple else Color.Gray,
+                            disabledContainerColor = Color.Gray
+                        ),
+                        modifier = Modifier.fillMaxWidth().height(52.dp)
+                    ) {
+                        Icon(Icons.Default.Check, null, tint = Color.White)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text       = if (state.latitud != null) "Confirmar ubicación" else "Toca el mapa para marcar",
+                            color      = Color.White,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
             }
         }
     }
@@ -112,6 +268,34 @@ fun RegisterGuarderiaScreen(
                 modifier      = Modifier.fillMaxWidth(),
                 shape         = RoundedCornerShape(12.dp)
             )
+            Spacer(Modifier.height(12.dp))
+
+            Text("Ubicación en el mapa", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text("Toca para marcar la ubicación exacta de tu guardería", fontSize = 12.sp, color = Color.Gray)
+            Spacer(Modifier.height(8.dp))
+            OutlinedCard(
+                shape    = RoundedCornerShape(12.dp),
+                border   = BorderStroke(1.dp, if (state.latitud != null) GreenColor else Color.Gray.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth().clickable { mostrarMapaDialog = true }
+            ) {
+                Row(
+                    modifier              = Modifier.padding(16.dp),
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        if (state.latitud != null) Icons.Default.LocationOn else Icons.Default.Map,
+                        null,
+                        tint = if (state.latitud != null) GreenColor else Color.Gray
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text  = if (state.latitud != null) "Ubicación marcada ✓  (toca para cambiar)" else "Toca para abrir el mapa",
+                        color = if (state.latitud != null) GreenColor else Color.Gray,
+                        fontSize = 13.sp
+                    )
+                }
+            }
             Spacer(Modifier.height(12.dp))
 
             OutlinedTextField(
@@ -176,14 +360,11 @@ fun RegisterGuarderiaScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape    = RoundedCornerShape(12.dp)
             )
-
             Spacer(Modifier.height(16.dp))
 
-            // ── Documento ──────────────────────────────────────────────
             Text("Documento de verificación", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Text("Sube el registro mercantil o licencia de funcionamiento (PDF o imagen)", fontSize = 12.sp, color = Color.Gray)
             Spacer(Modifier.height(8.dp))
-
             val docSeleccionado = state.documentoUri.isNotBlank()
             OutlinedCard(
                 shape    = RoundedCornerShape(12.dp),
@@ -202,16 +383,14 @@ fun RegisterGuarderiaScreen(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text     = if (docSeleccionado) "Documento seleccionado ✓" else "Toca para seleccionar archivo",
-                        color    = if (docSeleccionado) GreenColor else Color.Gray,
+                        text  = if (docSeleccionado) "Documento seleccionado ✓" else "Toca para seleccionar archivo",
+                        color = if (docSeleccionado) GreenColor else Color.Gray,
                         fontSize = 13.sp
                     )
                 }
             }
-
             Spacer(Modifier.height(20.dp))
 
-            // ── Checkbox términos y condiciones ────────────────────────
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier          = Modifier.fillMaxWidth()
@@ -233,33 +412,26 @@ fun RegisterGuarderiaScreen(
                             color          = Purple,
                             fontWeight     = FontWeight.SemiBold,
                             textDecoration = TextDecoration.Underline
-                        )) {
-                            append("Términos y Condiciones")
-                        }
+                        )) { append("Términos y Condiciones") }
                         append(" de Rapikids")
                     },
                     fontSize = 13.sp,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(TERMS_URL))
-                            context.startActivity(intent)
-                        }
+                    modifier = Modifier.weight(1f).clickable {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(TERMS_URL))
+                        context.startActivity(intent)
+                    }
                 )
             }
-
             if (terminosError) {
                 Text(
-                    text     = "⚠️ Debes aceptar los términos y condiciones para continuar",
+                    "⚠️ Debes aceptar los términos y condiciones para continuar",
                     color    = Color(0xFFB71C1C),
                     fontSize = 12.sp,
                     modifier = Modifier.padding(start = 12.dp, top = 2.dp)
                 )
             }
-
             Spacer(Modifier.height(16.dp))
 
-            // ── Error general ──────────────────────────────────────────
             if (state.error != null) {
                 Card(
                     colors   = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
@@ -267,7 +439,7 @@ fun RegisterGuarderiaScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text     = "⚠️ ${state.error}",
+                        "⚠️ ${state.error}",
                         color    = Color(0xFFB71C1C),
                         modifier = Modifier.padding(12.dp),
                         fontSize = 13.sp
@@ -276,13 +448,9 @@ fun RegisterGuarderiaScreen(
                 Spacer(Modifier.height(12.dp))
             }
 
-            // ── Botón registrar ────────────────────────────────────────
             Button(
                 onClick = {
-                    if (!aceptaTerminos) {
-                        terminosError = true
-                        return@Button
-                    }
+                    if (!aceptaTerminos) { terminosError = true; return@Button }
                     terminosError = false
                     authViewModel.registerGuarderia(context)
                 },
@@ -299,18 +467,16 @@ fun RegisterGuarderiaScreen(
                     Text("Enviar solicitud", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
-
             if (!aceptaTerminos) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text      = "Debes aceptar los términos y condiciones para registrarte",
+                    "Debes aceptar los términos y condiciones para registrarte",
                     color     = Color.Gray,
                     fontSize  = 12.sp,
                     textAlign = TextAlign.Center,
                     modifier  = Modifier.fillMaxWidth()
                 )
             }
-
             Spacer(Modifier.height(16.dp))
 
             TextButton(onClick = { navController.navigate(Routes.LOGIN_GUARDERIA) }) {

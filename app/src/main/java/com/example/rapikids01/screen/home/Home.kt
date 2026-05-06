@@ -26,7 +26,6 @@ fun Home(
     onGuarderiaClick: () -> Unit,
     onAdminClick: () -> Unit = {}
 ) {
-    // Contador de toques secretos en el título
     var tapCount by remember { mutableStateOf(0) }
 
     Column(
@@ -37,8 +36,6 @@ fun Home(
     ) {
 
         Spacer(modifier = Modifier.weight(0.6f))
-
-        // ── Título — toca 5 veces para acceso admin ────────────────────
         Text(
             text = "¿Quién eres?",
             fontSize = 30.sp,
@@ -56,8 +53,6 @@ fun Home(
         )
 
         Spacer(modifier = Modifier.height(32.dp))
-
-        // ── Botón Padre ────────────────────────────────────────────────
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
             Image(
@@ -84,8 +79,6 @@ fun Home(
         }
 
         Spacer(modifier = Modifier.height(36.dp))
-
-        // ── Botón Guardería ────────────────────────────────────────────
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
             Image(
