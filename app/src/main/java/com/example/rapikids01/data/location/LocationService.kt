@@ -122,6 +122,7 @@ class LocationService(private val context: Context) {
         }
     }
 
+
     fun calcularDistanciaKm(origen: LatLng, destino: LatLng): Double {
         val radioTierra = 6371.0
         val dLat = Math.toRadians(destino.lat - origen.lat)

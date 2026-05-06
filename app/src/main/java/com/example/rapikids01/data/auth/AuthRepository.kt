@@ -24,6 +24,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
+
 private const val ADMIN_SECRET_CODE = "RAPIKIDS-ADMIN-2026"
 
 @Serializable

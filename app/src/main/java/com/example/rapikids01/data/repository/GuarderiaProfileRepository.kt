@@ -138,6 +138,7 @@ class GuarderiaProfileRepository {
             Result.failure(e)
         }
     }
+
     suspend fun eliminarFotoCarrusel(
         fotosActuales: List<String>,
         indice: Int

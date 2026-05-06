@@ -9,6 +9,7 @@ import kotlinx.serialization.json.put
 
 class AdminRepository {
 
+
     suspend fun obtenerTodasGuarderias(): Result<List<Guarderia>> {
         return try {
             val lista = client.postgrest["guarderias"]

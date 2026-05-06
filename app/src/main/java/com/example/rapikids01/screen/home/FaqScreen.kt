@@ -205,6 +205,7 @@ private fun FaqItemCard(faq: FaqItem) {
                     modifier = Modifier.size(22.dp)
                 )
             }
+
             AnimatedVisibility(
                 visible = expandido,
                 enter   = expandVertically(),

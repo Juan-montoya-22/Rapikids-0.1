@@ -38,6 +38,7 @@ import com.example.rapikids01.viewmodel.HomePadreViewModel
 import java.util.Locale
 import androidx.compose.material.icons.filled.Map
 
+
 private val Purple      = Color(0xFF6A4DBA)
 private val PurpleLight = Color(0xFF9C7EE8)
 private val Orange      = Color(0xFFFF6B35)

@@ -55,6 +55,7 @@ fun RegisterGuarderiaScreen(
     val state   by authViewModel.registerGuarderiaState.collectAsState()
     val context = LocalContext.current
 
+
     var showPassword        by remember { mutableStateOf(false) }
     var showConfirmPassword by remember { mutableStateOf(false) }
     var aceptaTerminos      by remember { mutableStateOf(false) }

@@ -19,6 +19,7 @@ class GuarderiaRepository {
             Result.failure(e)
         }
     }
+
     fun filtrarGuarderias(lista: List<Guarderia>, query: String): List<Guarderia> {
         if (query.isBlank()) return lista
         val q = query.trim().lowercase()
